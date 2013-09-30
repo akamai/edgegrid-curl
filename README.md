@@ -6,13 +6,14 @@ Python based command line tool which simplies EdgeGrid Client Authentication
 
 ==SUMMARY
 
-egcurl is a curl-like tool for invoking APIs that are carried on the Akamai EdgeGrid network, by adding the EdgeGrid signature to a normal curl request.
+egcurl is a curl-like tool for invoking APIs that are carried on the Akamai EdgeGrid network. It adds the EdgeGrid signature to a normal curl request.  
 egcurl requires Python 2.x where x >= 6 on a *nix platform.
 
 
 ==CONFIGURATION
 
 The parameters and credentials for signing the requests are configured with a configuration file, by default .egcurl in your home directory. The command line can also specify the configuration file to use.
+
 The configuration is divided into sections with names in brackets. By default, egcurl looks up configurations in the section name "default", but the command line can override that.
 
 Lines starting with "#" are comments and ignored.
@@ -38,9 +39,9 @@ egcurl supports most of the curl command line options that are relevant to API r
 
 The additional optional arguments are: 
 
---eg-config FILE: Use FILE instead of ~/.egcurl to read the configuration. 
---eg-section SECTION: Use section SECTION instead of section "default" in the configuration. 
---eg-verbose: Print which line from the configuration matched the request, the actual arguments to be sent to curl, and perhaps other debugging information. 
+--eg-config FILE: Use FILE instead of ~/.egcurl to read the configuration.  
+--eg-section SECTION: Use section SECTION instead of section "default" in the configuration.  
+--eg-verbose: Print which line from the configuration matched the request, the actual arguments to be sent to curl, and perhaps other debugging information.
 
 Restrictions on data options
 
@@ -55,8 +56,8 @@ There are several restrictions on specifying the request data for POST and PUT r
 
 Here is an example configuration:
 
-[default]
-host:akaa-u5x3btzf44hplb4q-6jrzwnvo7llch3po.luna.akamaiapis.net client_token:akaa-nev5k66unzize2gx-5uz4svbszp4ko5wq access_token:akaa-ublu6mqdcqkjw5lz-542a56pcogddddow secret:SOMESECRET max-body:2048
+[default]  
+host:akaa-u5x3btzf44hplb4q-6jrzwnvo7llch3po.luna.akamaiapis.net client\_token:akaa-nev5k66unzize2gx-5uz4svbszp4ko5wq access\_token:akaa-ublu6mqdcqkjw5lz-542a56pcogddddow secret:SOMESECRET max-body:2048
 
 Here is an example invocation:
 
