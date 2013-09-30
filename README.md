@@ -47,9 +47,9 @@ Restrictions on data options
 
 There are several restrictions on specifying the request data for POST and PUT requests (currently only POST requests).
 
-1. Only supports "-d", "--data" and "--data-ascii" for assii data and "--data-binary" for binary data. The form-related options, such as "-F", "--form", "--form-string", "--data-urlencode", "-G" and "--get", are not allowed.
+1. Only supports "-d", "--data" and "--data-ascii" for ascii data and "--data-binary" for binary data. The form-related options, such as "-F", "--form", "--form-string", "--data-urlencode", "-G" and "--get", are not allowed.
 2. Only one data options can be used on the same command line.
-3. If the data starts with the letter @, the rest is treated as the name to read the data from. Only one file can be specified on the same command line.
+3. If the data starts with the letter @, the rest is treated as the name of the file to read the data from. Only one file can be specified on the same command line.
 
 
 ==EXAMPLE
