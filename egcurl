@@ -340,7 +340,7 @@ with open(config, "r") as f:
 
   args = (putback_args + args)
   args = (['-H', auth_header] + args)
-  args = (['curl'] + args)
+  args = (['curl'] + args + ['-H', 'Expect:'])
 
   if verbose: print "args = %s" % (args,)
   sys.stdout.flush()
