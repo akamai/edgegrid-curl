@@ -59,7 +59,7 @@ Here is an example configuration:
 
 ```
 [default]  
-host:akaa-u5x3btzf44hplb4q-6jrzwnvo7llch3po.luna.akamaiapis.net client\_token:akaa-nev5k66unzize2gx-5uz4svbszp4ko5wq access\_token:akaa-ublu6mqdcqkjw5lz-542a56pcogddddow secret:SOMESECRET max-body:2048
+host:akaa-u5x3btzf44hplb4q-6jrzwnvo7llch3po.luna.akamaiapis.net client_token:akaa-nev5k66unzize2gx-5uz4svbszp4ko5wq access_token:akaa-ublu6mqdcqkjw5lz-542a56pcogddddow secret:SOMESECRET max-body:2048
 ```
 
 Here is an example invocation:
