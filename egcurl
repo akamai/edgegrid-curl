@@ -163,8 +163,8 @@ class EGSigner(object):
             if not os.path.isfile(data_file):
               raise Exception('%s is not a file' %(data_file))
             filesize = os.stat(data_file).st_size
-            if filesize > self.max_body:
-              raise Exception('File %s too large, max size is %s' %(data_file, self.max_body))
+            #if filesize > self.max_body:
+            #  raise Exception('File %s too large, max size is %s' %(data_file, self.max_body))
             # read the file content, and assign to data
             with open(data_file, "r") as f:
               data = f.read()
@@ -172,9 +172,14 @@ class EGSigner(object):
                 data = ''.join(data.splitlines())
           except IOError:
             raise
-        else:
-          if len(data) > self.max_body:
-            raise Exception('Data too large, max size is %s' %(self.max_body))
+        #else:
+        #  if len(data) > self.max_body:
+        #    raise Exception('Data too large, max size is %s' %(self.max_body))
+
+        if len(data) > self.max_body:
+          if verbose: print "Data length %s larger than maximum %s " % (len(data),self.max_body)
+          data = data[0:self.max_body]
+          if verbose: print "Data truncated to %s for computing the hash" % len(data)
 
         # compute the hash
         md = hashlib.sha256(data).digest()

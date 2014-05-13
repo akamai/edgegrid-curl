@@ -2,6 +2,11 @@
 
 Python based command line tool which simplies EdgeGrid Client Authentication
 
+## CHANGES
+
+May 13th 2014
+* (GRID-231) A POST request body larger than the content hash max-body is allowed but only the first (max-body) bytes are used in the [Content hash aspect of the request signature](https://developer.akamai.com/stuff/Getting_Started_with_OPEN_APIs/Client_Auth.html).
+
 
 ## SUMMARY
 
