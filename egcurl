@@ -185,39 +185,6 @@ data_binary = None
 headers = {}
 putback_args = []
 
-url = args[-1]
-
-host = get_host(url, headers)
-
-with open(config, "r") as f:
-  current_section = None
-  vals = {}
-  matched = False
-  for line in f.readlines():
-    if re.match("^\\s*($|#)", line): continue
-    m = re.match("^\\s*\\[(.+?)\\]\\s*$", line)
-
-    if m:
-        current_section = m.group(1)
-        continue
-
-    vals = { "host": 0,
-             "client_token": None,
-             "access_token": None,
-             "secret": None,
-             "max-body": None,
-             "signed-header": []}
-    flds = line.split()
-    for fld in flds:
-        m = re.match("^([^:]+):(.+)$", fld)
-        if not m: break
-        name = m.group(1)
-        val = m.group(2)
-        if name not in vals: break
-        if type(vals[name]) == list:
-            vals[name].append(val)
-        elif vals[name] == None or vals[name] == 0:
-            vals[name] = val
 
 def parse_arguments(args):
     short_options = "H:X:d:F:GA:D:e:fiIkK:Lm:MNo:Oqr:RsSvw:y:Y:#"
@@ -348,4 +315,53 @@ def parse_arguments(args):
 
   os.execvp(args[0], args)
 
+def main(argv=None):
+    if argv is None:
+        argv = sys.argv
 
+    usage = "Usage: %s [--eg-config CONFIG] [--eg-section SECTION] [--eg-verbose] CURL_ARGS+" % argv[0]
+
+    args = argv[1:]
+
+    sys.stdout = os.fdopen(sys.stdout.fileno(), "w", 0)
+
+    logging.basicConfig(
+        format="%(asctime)s: egcurl: %(levelname)s: %(message)s",
+        level=logging.INFO,
+        stream=sys.stderr)
+
+    if not args:
+        log.error("CURL_ARGS required")
+        log.error(usage)
+        return 1
+
+    rv = parse_arguments(args)
+    if rv: return rv
+
+    url = args[-1]
+
+    host = get_host(url, headers)
+
+    config = parse_configuration(host)
+
+    # update the args with the signature
+    log.debug("Signer Configuration: %s", config)
+    signer = EGSigner(host,
+                      config["client_token"],
+                      config["access_token"],
+                      config["secret"],
+                      config["max-body"],
+                      config["signed-header"])
+
+    auth_header = signer.get_auth_header(url, method, headers, data_ascii, data_binary)
+
+    args = (putback_args + args)
+    args = (["-H", auth_header] + args)
+    args = (["curl"] + args + ["-H", "Expect:"])
+
+    log.debug("curl Arguments: %s", args)
+
+    os.execvp(args[0], args)
+
+if __name__ == "__main__":
+    sys.exit(main())
