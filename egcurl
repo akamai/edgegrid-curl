@@ -38,17 +38,17 @@ from urlparse import urlparse
 log = logging.getLogger(__name__)
 
 def get_host(url, headers):
-  host = ''
-  if 'host' in headers:
-    host = headers['host']
-  else:
-    parsed_url = urlparse(url)
-    netloc = parsed_url.netloc
-    if netloc.find(':') == -1:
-      host = netloc
+    host = ""
+    if "host" in headers:
+        host = headers["host"]
     else:
-      host, port = netloc.split(':')
-  return host.lower()
+        parsed_url = urlparse(url)
+        netloc = parsed_url.netloc
+        if netloc.find(":") == -1:
+            host = netloc
+        else:
+            host, port = netloc.split(":")
+    return host.lower()
 
 
 def get_relative_url(url):
