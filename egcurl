@@ -52,20 +52,20 @@ def get_host(url, headers):
 
 
 def get_relative_url(url):
-    relative_url = ''
-    auth_index = url.find('//')
-    path_index = url.find('/', auth_index+2)
+    relative_url = ""
+    auth_index = url.find("//")
+    path_index = url.find("/", auth_index + 2)
     if path_index == -1:
-      relative_url = '/'
+        relative_url = "/"
     else:
-      relative_url = url[path_index:]
+        relative_url = url[path_index:]
     return relative_url
 
 
 def sign(data, key, algorithm):
-  result = hmac.new(key, data, algorithm)
-  return result.digest()
- 
+    result = hmac.new(key, data, algorithm)
+    return result.digest()
+
 
 class EGSigner(object):
   def __init__(self, host, client_token, access_token, secret, max_body, signed_headers=None):
