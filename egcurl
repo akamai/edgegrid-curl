@@ -177,7 +177,7 @@ class EGSigner(object):
                 content_hash = base64.b64encode(md)
         return content_hash
 
-config = os.environ["HOME"] + "/.egcurl"
+config_path = os.environ["HOME"] + "/.egcurl"
 section = "default"
 verbose = False
 method = None
