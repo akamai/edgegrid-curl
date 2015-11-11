@@ -185,8 +185,9 @@ data_binary = None
 headers = {}
 putback_args = []
 
-
 def parse_arguments(args):
+    global method, data_ascii, data_binary, headers, putback_args
+
     short_options = "H:X:d:F:GA:D:e:fiIkK:Lm:MNo:Oqr:RsSvw:y:Y:#"
     long_options = [
         "eg-config=", "eg-section=", "eg-verbose", "header=",
@@ -266,54 +267,91 @@ def parse_arguments(args):
         elif arg:
             putback_args.extend([opt, arg])
         else:
+            putback_args.extend([opt])
+
+
+def _parse_fields(config, line, fields):
+    for field in fields:
+        log.debug("Config Field: [%s]", field)
+
+        match = re.match("^([^:]+):(.+)$", field)
+        if not match:
+            log.error("Config line: [%s] has invalid field [%s].", line, field)
+            return
+
+        key = match.group(1)
+        value = match.group(2)
+        log.debug("Config Key: [%s] Value: [%s]", key, value)
+
+        if key not in config.keys():
+            log.error("Config line: [%s] has nonexistent variable [%s].", line, key)
+            return
+
+        if type(config[key]) == list:
+            config[key].append(value)
+        elif not config[key]:
+            config[key] = value
+        else:
+            log.error("Config line: [%s] has duplicate variable [%s].", line, key)
             break
-        if name == 'max-body':
-            vals[name] = eval(val)
-    else:
-        if 0 not in vals.itervalues():
+
+def parse_configuration(host):
+    with open(config_path, "r") as f:
+        lines = f.readlines()
+
+    current_section = None
+    matched = False
+
+    for line in lines:
+        log.debug("Config line: %s", line)
+
+        if re.match("^\\s*($|#)", line):
+            continue
+
+        match = re.match("^\\s*\\[(.+?)\\]\\s*$", line)
+        if match:
+            current_section = match.group(1)
+            log.debug("Config section: %s", current_section)
+            continue
+
+        config = {
+            "host": 0,
+            "client_token": None,
+            "access_token": None,
+            "secret": None,
+            "max-body": None,
+            "signed-header": []
+        }
+        fields = line.split()
+        _parse_fields(config, line, fields)
+        config["max-body"] = int(config["max-body"])
+
+        if 0 not in config.itervalues():
             if current_section == section:
-                p = host.find(vals['host'])
-                if p == 0: 
-                    if verbose: print "Matched line for host %s" % host
+                p = host.find(config["host"])
+                if p == 0:
+                    log.debug("Matched line for host %s", host)
                     matched = True
                     break
                 pass
             continue
-        pass
-    raise ValueError("could not parse config line: " + line)
-  if not matched:
-    raise ValueError("could not find applicable config for host: " + host)
+        raise ValueError("could not parse config line: " + line)
 
-  if not vals['host']:
-    raise ValueError("cannot find matching host")
-  if not vals['client_token']:
-    raise ValueError("client_token is not configured")
-  if not vals['access_token']:
-    raise ValueError("access_token is not configured")
-  if not vals['secret']:
-    raise ValueError("secret is not configured")
-  if not vals['max-body']:
-    raise ValueError("max-body is not configured")
- 
-  # update the args with the signature
-  if verbose: print vals
-  signer = EGSigner(host,
-                    vals['client_token'],
-                    vals['access_token'],
-                    vals['secret'],
-                    vals['max-body'],
-                    vals['signed-header'])
-  
-  auth_header = signer.get_auth_header(url, method, headers, data_ascii, data_binary)
+    if not matched:
+        raise ValueError("could not find applicable config for host: " + host)
 
-  args = (putback_args + args)
-  args = (['-H', auth_header] + args)
-  args = (['curl'] + args + ['-H', 'Expect:'])
+    if not config["host"]:
+        raise ValueError("cannot find matching host")
+    if not config["client_token"]:
+        raise ValueError("client_token is not configured")
+    if not config["access_token"]:
+        raise ValueError("access_token is not configured")
+    if not config["secret"]:
+        raise ValueError("secret is not configured")
+    if not config["max-body"]:
+        raise ValueError("max-body is not configured")
 
-  if verbose: print "args = %s" % (args,)
-  sys.stdout.flush()
-
-  os.execvp(args[0], args)
+    return config
 
 def main(argv=None):
     if argv is None:
