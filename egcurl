@@ -179,7 +179,6 @@ class EGSigner(object):
 
 config_path = os.environ["HOME"] + "/.egcurl"
 section = "default"
-verbose = False
 method = None
 data_ascii = None
 data_binary = None
