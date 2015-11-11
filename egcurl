@@ -68,126 +68,114 @@ def sign(data, key, algorithm):
 
 
 class EGSigner(object):
-  def __init__(self, host, client_token, access_token, secret, max_body, signed_headers=None):
-    self.host = host
-    self.client_token = client_token
-    self.access_token = access_token
-    self.secret = secret
-    self.max_body = max_body
-    self.signed_headers = signed_headers
+    def __init__(self, host, client_token, access_token, secret, max_body, signed_headers=None):
+        self.host = host
+        self.client_token = client_token
+        self.access_token = access_token
+        self.secret = secret
+        self.max_body = max_body
+        self.signed_headers = signed_headers
 
+    def get_auth_header(self, url, method, headers, data_ascii, data_binary):
+        timestamp = strftime("%Y%m%dT%H:%M:%S+0000", gmtime())
 
-  def get_auth_header(self, url, method, headers, data_ascii, data_binary):  
-    timestamp = strftime("%Y%m%dT%H:%M:%S+0000", gmtime())
+        request_data = self.get_request_data(url, method, headers, data_ascii, data_binary)
+        auth_data = self.get_auth_data(timestamp)
+        request_data.append(auth_data)
+        string_to_sign = "\t".join(request_data)
+        log.debug("String-to-sign: %s", string_to_sign)
 
-    request_data = self.get_request_data(url, method, headers, data_ascii, data_binary)
-    auth_data = self.get_auth_data(timestamp)
-    request_data.append(auth_data)
-    string_to_sign = '\t'.join(request_data)
-    if verbose: print "String-to-sign: %s" %(string_to_sign)
+        key_bytes = sign(bytes(timestamp), bytes(self.secret), hashlib.sha256)
+        signing_key = base64.b64encode(key_bytes)
+        signature_bytes = sign(bytes(string_to_sign), bytes(signing_key), hashlib.sha256)
+        signature = base64.b64encode(signature_bytes)
+        auth_header = "Authorization: %ssignature=%s" % (auth_data, signature)
+        return auth_header
 
-    key_bytes = sign(bytes(timestamp), bytes(self.secret), hashlib.sha256)
-    signing_key = base64.b64encode(key_bytes)
-    signature_bytes = sign(bytes(string_to_sign), bytes(signing_key), hashlib.sha256)
-    signature = base64.b64encode(signature_bytes)
-    auth_header = 'Authorization: %ssignature=%s' %(auth_data, signature)
-    return auth_header
+    def get_auth_data(self, timestamp):
+        auth_fields = []
+        auth_fields.append("client_token=" + self.client_token)
+        auth_fields.append("access_token=" + self.access_token)
+        auth_fields.append("timestamp=" + timestamp)
+        auth_fields.append("nonce=" + str(uuid.uuid4()))
+        auth_fields.append("")
+        auth_data = ";".join(auth_fields)
+        auth_data = "EG1-HMAC-SHA256 " + auth_data
+        log.debug("Auth data: %s", auth_data)
+        return auth_data
 
+    def get_request_data(self, url, method, headers, data_ascii, data_binary):
+        requst_data = []
+        if not method:
+            if data_ascii or data_binary:
+                method = "POST"
+            else:
+                method = "GET"
+        else:
+            method = method.upper()
+        requst_data.append(method)
 
-  def get_auth_data(self, timestamp):
-    auth_fields = []
-    auth_fields.append('client_token=' + self.client_token)
-    auth_fields.append('access_token=' + self.access_token)
-    auth_fields.append('timestamp=' + timestamp)
-    auth_fields.append('nonce=' + str(uuid.uuid4()))
-    auth_fields.append('')
-    auth_data = ';'.join(auth_fields)
-    auth_data = 'EG1-HMAC-SHA256 ' + auth_data
-    if verbose: print "Auth data: %s" %(auth_data)
-    return auth_data
+        parsed_url = urlparse(url)
+        requst_data.append(parsed_url.scheme)
+        requst_data.append(self.host)
+        requst_data.append(get_relative_url(url))
+        requst_data.append(self.get_canonicalize_headers(headers))
+        requst_data.append(self.get_content_hash(method, data_ascii, data_binary))
+        return requst_data
 
+    def get_canonicalize_headers(self, headers):
+        canonical_header = ""
+        headers_values = []
+        log.debug("Signed headers: %s", self.signed_headers)
+        for header_name in self.signed_headers:
+            header_value = ""
+            if header_name in headers:
+                header_value = headers[header_name]
+            if header_value:
+                header_value = header_value.strip()
+                p = re.compile("\\s+")
+                new_value = p.sub(" ", header_value)
+                canonical_header = header_name + ":" + new_value
+                headers_values.append(canonical_header)
+        headers_values.append("")
+        canonical_header = "\t".join(headers_values)
+        log.debug("Canonicalized header: %s", canonical_header)
+        return canonical_header
 
-  def get_request_data(self, url, method, headers, data_ascii, data_binary):
-    requst_data = []
-    if not method:
-      if data_ascii or data_binary:
-        method = 'POST'
-      else:
-        method = 'GET'
-    else:
-      method = method.upper()
-    requst_data.append(method)
-    
-    parsed_url = urlparse(url)
-    requst_data.append(parsed_url.scheme)
-    requst_data.append(self.host)
-    requst_data.append(get_relative_url(url))
-    requst_data.append(self.get_canonicalize_headers(headers))
-    requst_data.append(self.get_content_hash(method, data_ascii, data_binary))
-    return requst_data
+    def get_content_hash(self, method, data_ascii, data_binary):
+        content_hash = ""
+        data = ""
+        if data_ascii:
+            data = data_ascii
+        elif data_binary:
+            data = data_binary
 
+        # only hash POST for now
+        if method == "POST":
+            if data:
+                if data.startswith("@"):
+                    data_file = data.lstrip("@")
+                    try:
+                        if not os.path.isfile(data_file):
+                            raise Exception("%s is not a file" % data_file)
+                        filesize = os.stat(data_file).st_size
+                        # read the file content, and assign to data
+                        with open(data_file, "r") as f:
+                            data = f.read()
+                            if data_ascii:
+                                data = "".join(data.splitlines())
+                    except IOError:
+                        raise
 
-  def get_canonicalize_headers(self, headers):
-    canonical_header = '' 
-    headers_values = []
-    if verbose: print self.signed_headers
-    for header_name in self.signed_headers:
-      header_value = ''
-      if header_name in headers:
-        header_value = headers[header_name]
-      if header_value:
-        header_value = header_value.strip()
-        p = re.compile('\\s+')
-        new_value = p.sub(' ', header_value) 
-        canonical_header = header_name + ':' + new_value
-        headers_values.append(canonical_header)
-    headers_values.append('')
-    canonical_header = '\t'.join(headers_values)
-    if verbose: print "Canonicalized header: %s" %(canonical_header)
-    return canonical_header
+                if len(data) > self.max_body:
+                    log.debug("Data length %s larger than maximum %s ", len(data), self.max_body)
+                    data = data[0:self.max_body]
+                    log.debug("Data truncated to %s for computing the hash", len(data))
 
-
-  def get_content_hash(self, method, data_ascii, data_binary):
-    content_hash = ''
-    data = ''
-    if data_ascii:
-      data = data_ascii
-    elif data_binary:
-      data = data_binary
-
-#    if method == 'POST' or method == 'PUT' or method == 'PATCH':
-    # only hash POST for now
-    if method == 'POST':
-      if data:
-        if data.startswith("@"):
-          data_file = data.lstrip("@")
-          try:
-            if not os.path.isfile(data_file):
-              raise Exception('%s is not a file' %(data_file))
-            filesize = os.stat(data_file).st_size
-            #if filesize > self.max_body:
-            #  raise Exception('File %s too large, max size is %s' %(data_file, self.max_body))
-            # read the file content, and assign to data
-            with open(data_file, "r") as f:
-              data = f.read()
-              if data_ascii:
-                data = ''.join(data.splitlines())
-          except IOError:
-            raise
-        #else:
-        #  if len(data) > self.max_body:
-        #    raise Exception('Data too large, max size is %s' %(self.max_body))
-
-        if len(data) > self.max_body:
-          if verbose: print "Data length %s larger than maximum %s " % (len(data),self.max_body)
-          data = data[0:self.max_body]
-          if verbose: print "Data truncated to %s for computing the hash" % len(data)
-
-        # compute the hash
-        md = hashlib.sha256(data).digest()
-        content_hash = base64.b64encode(md)
-    return content_hash
-
+                # compute the hash
+                md = hashlib.sha256(data).digest()
+                content_hash = base64.b64encode(md)
+        return content_hash
 
 config = os.environ["HOME"] + "/.egcurl"
 section = "default"
