@@ -185,79 +185,6 @@ data_binary = None
 headers = {}
 putback_args = []
 
-usage = "Usage: %s [--eg-config CONFIG] [--eg-section SECTION] [--eg-verbose] CURL_ARGS+" % sys.argv[0]
-
-args = sys.argv[1:]
-try:
-  opts, args = getopt.gnu_getopt(args,"H:X:d:F:GA:D:e:fiIkK:Lm:MNo:Oqr:RsSvw:y:Y:#",
-    ["eg-config=","eg-section=","eg-verbose","header=","request=","data=","data-ascii=","data-binary=","data-urlencode=","form=","form-string=","get","user-agent=","compressed","connect-timeout=","create-dirs","dump-header=","referer=","fail","ignore-content-length","include","interface=","head","insecure","keepalive-time=","config=","limit-rate=","local-port=","location","max-filesize=","max-time=","manual","no-buffer","buffer","no-keepalive","keepalive","no-sessionid","sessionid","noproxy=","output=","remote-name","remote-name-all","no-remote-name","post301","post302","range=","raw","remote-time","retry=","retry-delay=","retry-max-time=","silent","show-error","stderr=","tcp-nodelay","trace=","trace-ascii=","trace-time","verbose","write-out=","speed-time=","speed-limit","progress-bar"])
-except getopt.GetoptError:
-  print >>sys.stderr, usage
-  sys.exit(1)
-
-for opt, arg in opts:
-  if opt in ("-H", "--header"):
-    putback_args.extend([opt, arg])
-    if arg:
-      header_field = arg.strip()
-      header_name, header_value = header_field.split(':')
-      if header_name:
-        header_name = header_name.strip()
-      if not header_name:
-        print >>sys.stderr, "Invalid header value."
-        sys.exit(1)
-      if header_value:
-        header_value = header_value.strip()
-        if header_value:
-          headers[header_name.lower()] = header_value
-  elif opt in ("-X", "--request"):
-    putback_args.extend([opt, arg])
-    if method:
-      print >>sys.stderr, "Multiple request methods are not supported."
-      sys.exit(1)
-    else:
-      method = arg
-  elif opt in ("-d", "--data", "--data-ascii"):
-    putback_args.extend([opt, arg])
-    if data_ascii or data_binary:
-      print >>sys.stderr, "Multiple data arguments are not supported."
-      sys.exit(1)
-    else:
-      data_ascii = arg
-  elif opt in ("--data-binary"):
-    putback_args.extend([opt, arg])
-    if data_ascii or data_binary:
-      print >>sys.stderr, "Multiple data arguments are not supported."
-      sys.exit(1)
-    else:
-      data_binary = arg
-  elif opt in ("-F", "--form", "--form-string"):
-    print >>sys.stderr, "Form data is not supported."
-    sys.exit(1)
-  elif opt in ("--data-urlencode"):
-    print >>sys.stderr, "Form data is not supported."
-    sys.exit(1)
-  elif opt in ("-G", "--get"):
-    print >>sys.stderr, "The option %s is not supported." %opt
-    sys.exit(1)
-  elif opt == "--eg-config":
-    config = arg
-  elif opt == "--eg-section":
-    section = arg
-  elif opt == "--eg-verbose":
-    verbose = True
-  elif arg:
-    putback_args.extend([opt, arg])
-  else:
-    putback_args.extend([opt])
-
-if not len(args):
-    print >>sys.stderr, "CURL_ARGS required"
-    print >>sys.stderr, ""
-    print >>sys.stderr, usage
-    sys.exit(1)
-    pass
-
 url = args[-1]
 
 host = get_host(url, headers)
@@ -291,6 +218,86 @@ with open(config, "r") as f:
             vals[name].append(val)
         elif vals[name] == None or vals[name] == 0:
             vals[name] = val
+
+def parse_arguments(args):
+    short_options = "H:X:d:F:GA:D:e:fiIkK:Lm:MNo:Oqr:RsSvw:y:Y:#"
+    long_options = [
+        "eg-config=", "eg-section=", "eg-verbose", "header=",
+        "request=", "data=", "data-ascii=", "data-binary=",
+        "data-urlencode=", "form=", "form-string=", "get",
+        "user-agent=", "compressed", "connect-timeout=", "create-dirs",
+        "dump-header=", "referer=", "fail", "ignore-content-length",
+        "include", "interface=", "head", "insecure", "keepalive-time=",
+        "config=", "limit-rate=", "local-port=", "location",
+        "max-filesize=", "max-time=", "manual", "no-buffer",
+        "buffer", "no-keepalive", "keepalive", "no-sessionid",
+        "sessionid", "noproxy=", "output=", "remote-name",
+        "remote-name-all", "no-remote-name", "post301", "post302",
+        "range=", "raw", "remote-time", "retry=", "retry-delay=",
+        "retry-max-time=", "silent", "show-error", "stderr=",
+        "tcp-nodelay", "trace=", "trace-ascii=", "trace-time",
+        "verbose", "write-out=", "speed-time=", "speed-limit",
+        "progress-bar"]
+
+    try:
+        opts, args = getopt.gnu_getopt(args, short_options, long_options)
+    except getopt.GetoptError:
+        log.error(usage)
+        return 1
+
+    for opt, arg in opts:
+        if opt in ("-H", "--header"):
+            putback_args.extend([opt, arg])
+            if arg:
+                header_field = arg.strip()
+                header_name, header_value = header_field.split(":")
+                if header_name:
+                    header_name = header_name.strip()
+                if not header_name:
+                    log.error("Invalid header value.")
+                    return 1
+                if header_value:
+                    header_value = header_value.strip()
+                    if header_value:
+                        headers[header_name.lower()] = header_value
+        elif opt in ("-X", "--request"):
+            putback_args.extend([opt, arg])
+            if method:
+                log.error("Multiple request methods are not supported.")
+                return 1
+            else:
+                method = arg
+        elif opt in ("-d", "--data", "--data-ascii"):
+            putback_args.extend([opt, arg])
+            if data_ascii or data_binary:
+                log.error("Multiple data arguments are not supported.")
+                return 1
+            else:
+                data_ascii = arg
+        elif opt in ("--data-binary"):
+            putback_args.extend([opt, arg])
+            if data_ascii or data_binary:
+                log.error("Multiple data arguments are not supported.")
+                return 1
+            else:
+                data_binary = arg
+        elif opt in ("-F", "--form", "--form-string"):
+            log.error("Form data is not supported.")
+            return 1
+        elif opt in ("--data-urlencode"):
+            log.error("Form data is not supported.")
+            return 1
+        elif opt in ("-G", "--get"):
+            log.error("The option %s is not supported.", opt)
+            sys.exit(1)
+        elif opt == "--eg-config":
+            config_path = arg
+        elif opt == "--eg-section":
+            section = arg
+        elif opt == "--eg-verbose":
+            logging.getLogger('').setLevel(logging.DEBUG)
+        elif arg:
+            putback_args.extend([opt, arg])
         else:
             break
         if name == 'max-body':
