@@ -38,28 +38,11 @@ from urlparse import urlparse
 log = logging.getLogger(__name__)
 
 def get_host(url, headers):
-    host = ""
-    if "host" in headers:
-        host = headers["host"]
-    else:
-        parsed_url = urlparse(url)
-        netloc = parsed_url.netloc
-        if netloc.find(":") == -1:
-            host = netloc
-        else:
-            host, port = netloc.split(":")
-    return host.lower()
+    return urlparse(url).netloc.split(":")[0].lower()
 
 
 def get_relative_url(url):
-    relative_url = ""
-    auth_index = url.find("//")
-    path_index = url.find("/", auth_index + 2)
-    if path_index == -1:
-        relative_url = "/"
-    else:
-        relative_url = url[path_index:]
-    return relative_url
+    return urlparse(url).path or "/"
 
 
 def sign(data, key, algorithm):
