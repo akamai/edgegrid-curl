@@ -211,7 +211,7 @@ def parse_arguments(args):
         opts, args = getopt.gnu_getopt(args, short_options, long_options)
     except getopt.GetoptError:
         log.error(usage)
-        return 1
+        return 1, args
 
     for opt, arg in opts:
         if opt in ("-H", "--header"):
@@ -223,7 +223,7 @@ def parse_arguments(args):
                     header_name = header_name.strip()
                 if not header_name:
                     log.error("Invalid header value.")
-                    return 1
+                    return 1, args
                 if header_value:
                     header_value = header_value.strip()
                     if header_value:
@@ -232,29 +232,29 @@ def parse_arguments(args):
             putback_args.extend([opt, arg])
             if method:
                 log.error("Multiple request methods are not supported.")
-                return 1
+                return 1, args
             else:
                 method = arg
         elif opt in ("-d", "--data", "--data-ascii"):
             putback_args.extend([opt, arg])
             if data_ascii or data_binary:
                 log.error("Multiple data arguments are not supported.")
-                return 1
+                return 1, args
             else:
                 data_ascii = arg
         elif opt in ("--data-binary"):
             putback_args.extend([opt, arg])
             if data_ascii or data_binary:
                 log.error("Multiple data arguments are not supported.")
-                return 1
+                return 1, args
             else:
                 data_binary = arg
         elif opt in ("-F", "--form", "--form-string"):
             log.error("Form data is not supported.")
-            return 1
+            return 1, args
         elif opt in ("--data-urlencode"):
             log.error("Form data is not supported.")
-            return 1
+            return 1, args
         elif opt in ("-G", "--get"):
             log.error("The option %s is not supported.", opt)
             sys.exit(1)
@@ -268,6 +268,8 @@ def parse_arguments(args):
             putback_args.extend([opt, arg])
         else:
             putback_args.extend([opt])
+
+    return 0, args
 
 
 def _parse_fields(config, line, fields):
