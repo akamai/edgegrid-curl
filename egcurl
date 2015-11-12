@@ -57,7 +57,7 @@ class EGSigner(object):
         self.client_token = client_token
         self.access_token = access_token
         self.secret = secret
-        self.max_body = max_body
+        self.max_body = int(max_body)
         self.signed_headers = signed_headers
 
     def get_auth_header(self, url, method, headers, data_ascii, data_binary):
