@@ -157,9 +157,9 @@ class EGSigner(object):
                         raise
 
                 if len(data) > self.max_body:
-                    log.debug("Data length %s larger than maximum %s ", len(data), self.max_body)
+                    log.warn("Data length %s larger than maximum %s ", len(data), self.max_body)
                     data = data[0:self.max_body]
-                    log.debug("Data truncated to %s for computing the hash", len(data))
+                    log.warn("Data truncated to %s for computing the hash", len(data))
 
                 # compute the hash
                 md = hashlib.sha256(data).digest()
