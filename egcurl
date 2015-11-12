@@ -361,8 +361,6 @@ def main(argv=None):
 
     usage = "Usage: %s [--eg-config CONFIG] [--eg-section SECTION] [--eg-verbose] CURL_ARGS+" % argv[0]
 
-    args = argv[1:]
-
     sys.stdout = os.fdopen(sys.stdout.fileno(), "w", 0)
 
     logging.basicConfig(
@@ -370,18 +368,16 @@ def main(argv=None):
         level=logging.INFO,
         stream=sys.stderr)
 
-    if not args:
+    if len(argv) < 1:
         log.error("CURL_ARGS required")
         log.error(usage)
         return 1
 
-    rv = parse_arguments(args)
+    rv, args = parse_arguments(argv[1:])
     if rv: return rv
 
     url = args[-1]
-
     host = get_host(url, headers)
-
     config = parse_configuration(host)
 
     # update the args with the signature
