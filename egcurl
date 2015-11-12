@@ -52,6 +52,7 @@ def sign(data, key, algorithm):
 
 class EGSigner(object):
     def __init__(self, host, client_token, access_token, secret, max_body, signed_headers=None):
+        signed_headers = signed_headers or []
         self.host = host
         self.client_token = client_token
         self.access_token = access_token
@@ -60,6 +61,11 @@ class EGSigner(object):
         self.signed_headers = signed_headers
 
     def get_auth_header(self, url, method, headers, data_ascii, data_binary):
+        result = self.get_auth_header_value(url, method, headers, data_ascii, data_binary)
+        auth_header = "Authorization: %s" % result
+        return auth_header
+
+    def get_auth_header_value(self, url, method, headers, data_ascii, data_binary):
         timestamp = strftime("%Y%m%dT%H:%M:%S+0000", gmtime())
 
         request_data = self.get_request_data(url, method, headers, data_ascii, data_binary)
@@ -72,8 +78,8 @@ class EGSigner(object):
         signing_key = base64.b64encode(key_bytes)
         signature_bytes = sign(bytes(string_to_sign), bytes(signing_key), hashlib.sha256)
         signature = base64.b64encode(signature_bytes)
-        auth_header = "Authorization: %ssignature=%s" % (auth_data, signature)
-        return auth_header
+        auth_value = "%ssignature=%s" % (auth_data, signature)
+        return auth_value
 
     def get_auth_data(self, timestamp):
         auth_fields = []
