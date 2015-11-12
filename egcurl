@@ -166,6 +166,23 @@ class EGSigner(object):
                 content_hash = base64.b64encode(md)
         return content_hash
 
+
+_signer = None
+def get_signer(config):
+    global _signer
+    if _signer: return _signer
+
+    log.debug("Signer Configuration:\n%s", config)
+    _signer = EGSigner(config["host"],
+        config["client_token"],
+        config["access_token"],
+        config["secret"],
+        config["max-body"],
+        config["signed-header"])
+
+    return _signer
+
+
 config_path = os.environ["HOME"] + "/.egcurl"
 section = "default"
 method = None
@@ -370,14 +387,7 @@ def main(argv=None):
     config = parse_configuration(host)
 
     # update the args with the signature
-    log.debug("Signer Configuration: %s", config)
-    signer = EGSigner(host,
-                      config["client_token"],
-                      config["access_token"],
-                      config["secret"],
-                      config["max-body"],
-                      config["signed-header"])
-
+    signer = get_signer(config)
     auth_header = signer.get_auth_header(url, method, headers, data_ascii, data_binary)
 
     args = (putback_args + args)
