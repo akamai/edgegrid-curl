@@ -15,16 +15,17 @@
 # limitations under the License.
 #
 
+import base64
 import getopt
 import hashlib
-import base64
 import hmac
-import os
-import sys
 import logging
+import os
+import re
+import sys
 import urllib
 import uuid
-import re
+
 from time import gmtime, strftime
 from urlparse import urlparse
 
@@ -34,322 +35,368 @@ from urlparse import urlparse
 # only one entry, no repeats
 # can handle @
 
+log = logging.getLogger(__name__)
 
 def get_host(url, headers):
-  host = ''
-  if 'host' in headers:
-    host = headers['host']
-  else:
-    parsed_url = urlparse(url)
-    netloc = parsed_url.netloc
-    if netloc.find(':') == -1:
-      host = netloc
-    else:
-      host, port = netloc.split(':')
-  return host.lower()
+    return urlparse(url).netloc.split(":")[0].lower()
 
 
 def get_relative_url(url):
-    relative_url = ''
-    auth_index = url.find('//')
-    path_index = url.find('/', auth_index+2)
-    if path_index == -1:
-      relative_url = '/'
-    else:
-      relative_url = url[path_index:]
-    return relative_url
+    return urlparse(url).path or "/"
 
 
 def sign(data, key, algorithm):
-  result = hmac.new(key, data, algorithm)
-  return result.digest()
- 
+    result = hmac.new(key, data, algorithm)
+    return result.digest()
+
 
 class EGSigner(object):
-  def __init__(self, host, client_token, access_token, secret, max_body, signed_headers=None):
-    self.host = host
-    self.client_token = client_token
-    self.access_token = access_token
-    self.secret = secret
-    self.max_body = max_body
-    self.signed_headers = signed_headers
+    def __init__(self, host, client_token, access_token, secret, max_body, signed_headers=None):
+        signed_headers = signed_headers or []
+        self.host = host
+        self.client_token = client_token
+        self.access_token = access_token
+        self.secret = secret
+        self.max_body = int(max_body)
+        self.signed_headers = signed_headers
+
+    def get_auth_header(self, url, method, headers, data_ascii, data_binary):
+        result = self.get_auth_header_value(url, method, headers, data_ascii, data_binary)
+        auth_header = "Authorization: %s" % result
+        return auth_header
+
+    def get_auth_header_value(self, url, method, headers, data_ascii, data_binary):
+        timestamp = strftime("%Y%m%dT%H:%M:%S+0000", gmtime())
+
+        request_data = self.get_request_data(url, method, headers, data_ascii, data_binary)
+        auth_data = self.get_auth_data(timestamp)
+        request_data.append(auth_data)
+        string_to_sign = "\t".join(request_data)
+        log.debug("String-to-sign: %s", string_to_sign)
+
+        key_bytes = sign(bytes(timestamp), bytes(self.secret), hashlib.sha256)
+        signing_key = base64.b64encode(key_bytes)
+        signature_bytes = sign(bytes(string_to_sign), bytes(signing_key), hashlib.sha256)
+        signature = base64.b64encode(signature_bytes)
+        auth_value = "%ssignature=%s" % (auth_data, signature)
+        return auth_value
+
+    def get_auth_data(self, timestamp):
+        auth_fields = []
+        auth_fields.append("client_token=" + self.client_token)
+        auth_fields.append("access_token=" + self.access_token)
+        auth_fields.append("timestamp=" + timestamp)
+        auth_fields.append("nonce=" + str(uuid.uuid4()))
+        auth_fields.append("")
+        auth_data = ";".join(auth_fields)
+        auth_data = "EG1-HMAC-SHA256 " + auth_data
+        log.debug("Auth data: %s", auth_data)
+        return auth_data
+
+    def get_request_data(self, url, method, headers, data_ascii, data_binary):
+        requst_data = []
+        if not method:
+            if data_ascii or data_binary:
+                method = "POST"
+            else:
+                method = "GET"
+        else:
+            method = method.upper()
+        requst_data.append(method)
+
+        parsed_url = urlparse(url)
+        requst_data.append(parsed_url.scheme)
+        requst_data.append(self.host)
+        requst_data.append(get_relative_url(url))
+        requst_data.append(self.get_canonicalize_headers(headers))
+        requst_data.append(self.get_content_hash(method, data_ascii, data_binary))
+        return requst_data
+
+    def get_canonicalize_headers(self, headers):
+        canonical_header = ""
+        headers_values = []
+        log.debug("Signed headers: %s", self.signed_headers)
+        for header_name in self.signed_headers:
+            header_value = ""
+            if header_name in headers:
+                header_value = headers[header_name]
+            if header_value:
+                header_value = header_value.strip()
+                p = re.compile("\\s+")
+                new_value = p.sub(" ", header_value)
+                canonical_header = header_name + ":" + new_value
+                headers_values.append(canonical_header)
+        headers_values.append("")
+        canonical_header = "\t".join(headers_values)
+        log.debug("Canonicalized header: %s", canonical_header)
+        return canonical_header
+
+    def get_content_hash(self, method, data_ascii, data_binary):
+        content_hash = ""
+        data = ""
+        if data_ascii:
+            data = data_ascii
+        elif data_binary:
+            data = data_binary
+
+        # only hash POST for now
+        if method == "POST":
+            if data:
+                if data.startswith("@"):
+                    data_file = data.lstrip("@")
+                    try:
+                        if not os.path.isfile(data_file):
+                            raise Exception("%s is not a file" % data_file)
+                        filesize = os.stat(data_file).st_size
+                        # read the file content, and assign to data
+                        with open(data_file, "r") as f:
+                            data = f.read()
+                            if data_ascii:
+                                data = "".join(data.splitlines())
+                    except IOError:
+                        raise
+
+                if len(data) > self.max_body:
+                    log.warn("Data length %s larger than maximum %s ", len(data), self.max_body)
+                    data = data[0:self.max_body]
+                    log.warn("Data truncated to %s for computing the hash", len(data))
+
+                # compute the hash
+                md = hashlib.sha256(data).digest()
+                content_hash = base64.b64encode(md)
+        return content_hash
 
 
-  def get_auth_header(self, url, method, headers, data_ascii, data_binary):  
-    timestamp = strftime("%Y%m%dT%H:%M:%S+0000", gmtime())
+_signer = None
+def get_signer(config):
+    global _signer
+    if _signer: return _signer
 
-    request_data = self.get_request_data(url, method, headers, data_ascii, data_binary)
-    auth_data = self.get_auth_data(timestamp)
-    request_data.append(auth_data)
-    string_to_sign = '\t'.join(request_data)
-    if verbose: print "String-to-sign: %s" %(string_to_sign)
+    log.debug("Signer Configuration:\n%s", config)
+    _signer = EGSigner(config["host"],
+        config["client_token"],
+        config["access_token"],
+        config["secret"],
+        config["max-body"],
+        config["signed-header"])
 
-    key_bytes = sign(bytes(timestamp), bytes(self.secret), hashlib.sha256)
-    signing_key = base64.b64encode(key_bytes)
-    signature_bytes = sign(bytes(string_to_sign), bytes(signing_key), hashlib.sha256)
-    signature = base64.b64encode(signature_bytes)
-    auth_header = 'Authorization: %ssignature=%s' %(auth_data, signature)
-    return auth_header
-
-
-  def get_auth_data(self, timestamp):
-    auth_fields = []
-    auth_fields.append('client_token=' + self.client_token)
-    auth_fields.append('access_token=' + self.access_token)
-    auth_fields.append('timestamp=' + timestamp)
-    auth_fields.append('nonce=' + str(uuid.uuid4()))
-    auth_fields.append('')
-    auth_data = ';'.join(auth_fields)
-    auth_data = 'EG1-HMAC-SHA256 ' + auth_data
-    if verbose: print "Auth data: %s" %(auth_data)
-    return auth_data
+    return _signer
 
 
-  def get_request_data(self, url, method, headers, data_ascii, data_binary):
-    requst_data = []
-    if not method:
-      if data_ascii or data_binary:
-        method = 'POST'
-      else:
-        method = 'GET'
-    else:
-      method = method.upper()
-    requst_data.append(method)
-    
-    parsed_url = urlparse(url)
-    requst_data.append(parsed_url.scheme)
-    requst_data.append(self.host)
-    requst_data.append(get_relative_url(url))
-    requst_data.append(self.get_canonicalize_headers(headers))
-    requst_data.append(self.get_content_hash(method, data_ascii, data_binary))
-    return requst_data
-
-
-  def get_canonicalize_headers(self, headers):
-    canonical_header = '' 
-    headers_values = []
-    if verbose: print self.signed_headers
-    for header_name in self.signed_headers:
-      header_value = ''
-      if header_name in headers:
-        header_value = headers[header_name]
-      if header_value:
-        header_value = header_value.strip()
-        p = re.compile('\\s+')
-        new_value = p.sub(' ', header_value) 
-        canonical_header = header_name + ':' + new_value
-        headers_values.append(canonical_header)
-    headers_values.append('')
-    canonical_header = '\t'.join(headers_values)
-    if verbose: print "Canonicalized header: %s" %(canonical_header)
-    return canonical_header
-
-
-  def get_content_hash(self, method, data_ascii, data_binary):
-    content_hash = ''
-    data = ''
-    if data_ascii:
-      data = data_ascii
-    elif data_binary:
-      data = data_binary
-
-#    if method == 'POST' or method == 'PUT' or method == 'PATCH':
-    # only hash POST for now
-    if method == 'POST':
-      if data:
-        if data.startswith("@"):
-          data_file = data.lstrip("@")
-          try:
-            if not os.path.isfile(data_file):
-              raise Exception('%s is not a file' %(data_file))
-            filesize = os.stat(data_file).st_size
-            #if filesize > self.max_body:
-            #  raise Exception('File %s too large, max size is %s' %(data_file, self.max_body))
-            # read the file content, and assign to data
-            with open(data_file, "r") as f:
-              data = f.read()
-              if data_ascii:
-                data = ''.join(data.splitlines())
-          except IOError:
-            raise
-        #else:
-        #  if len(data) > self.max_body:
-        #    raise Exception('Data too large, max size is %s' %(self.max_body))
-
-        if len(data) > self.max_body:
-          if verbose: print "Data length %s larger than maximum %s " % (len(data),self.max_body)
-          data = data[0:self.max_body]
-          if verbose: print "Data truncated to %s for computing the hash" % len(data)
-
-        # compute the hash
-        md = hashlib.sha256(data).digest()
-        content_hash = base64.b64encode(md)
-    return content_hash
-
-
-config = os.environ["HOME"] + "/.egcurl"
+config_path = os.environ["HOME"] + "/.egcurl"
 section = "default"
-verbose = False
 method = None
 data_ascii = None
 data_binary = None
 headers = {}
 putback_args = []
 
-usage = "Usage: %s [--eg-config CONFIG] [--eg-section SECTION] [--eg-verbose] CURL_ARGS+" % sys.argv[0]
+def parse_arguments(args):
+    global method, data_ascii, data_binary, headers, putback_args
 
-args = sys.argv[1:]
-try:
-  opts, args = getopt.gnu_getopt(args,"H:X:d:F:GA:D:e:fiIkK:Lm:MNo:Oqr:RsSvw:y:Y:#",
-    ["eg-config=","eg-section=","eg-verbose","header=","request=","data=","data-ascii=","data-binary=","data-urlencode=","form=","form-string=","get","user-agent=","compressed","connect-timeout=","create-dirs","dump-header=","referer=","fail","ignore-content-length","include","interface=","head","insecure","keepalive-time=","config=","limit-rate=","local-port=","location","max-filesize=","max-time=","manual","no-buffer","buffer","no-keepalive","keepalive","no-sessionid","sessionid","noproxy=","output=","remote-name","remote-name-all","no-remote-name","post301","post302","range=","raw","remote-time","retry=","retry-delay=","retry-max-time=","silent","show-error","stderr=","tcp-nodelay","trace=","trace-ascii=","trace-time","verbose","write-out=","speed-time=","speed-limit","progress-bar"])
-except getopt.GetoptError:
-  print >>sys.stderr, usage
-  sys.exit(1)
+    short_options = "H:X:d:F:GA:D:e:fiIkK:Lm:MNo:Oqr:RsSvw:y:Y:#"
+    long_options = [
+        "eg-config=", "eg-section=", "eg-verbose", "header=",
+        "request=", "data=", "data-ascii=", "data-binary=",
+        "data-urlencode=", "form=", "form-string=", "get",
+        "user-agent=", "compressed", "connect-timeout=", "create-dirs",
+        "dump-header=", "referer=", "fail", "ignore-content-length",
+        "include", "interface=", "head", "insecure", "keepalive-time=",
+        "config=", "limit-rate=", "local-port=", "location",
+        "max-filesize=", "max-time=", "manual", "no-buffer",
+        "buffer", "no-keepalive", "keepalive", "no-sessionid",
+        "sessionid", "noproxy=", "output=", "remote-name",
+        "remote-name-all", "no-remote-name", "post301", "post302",
+        "range=", "raw", "remote-time", "retry=", "retry-delay=",
+        "retry-max-time=", "silent", "show-error", "stderr=",
+        "tcp-nodelay", "trace=", "trace-ascii=", "trace-time",
+        "verbose", "write-out=", "speed-time=", "speed-limit",
+        "progress-bar"]
 
-for opt, arg in opts:
-  if opt in ("-H", "--header"):
-    putback_args.extend([opt, arg])
-    if arg:
-      header_field = arg.strip()
-      header_name, header_value = header_field.split(':')
-      if header_name:
-        header_name = header_name.strip()
-      if not header_name:
-        print >>sys.stderr, "Invalid header value."
-        sys.exit(1)
-      if header_value:
-        header_value = header_value.strip()
-        if header_value:
-          headers[header_name.lower()] = header_value
-  elif opt in ("-X", "--request"):
-    putback_args.extend([opt, arg])
-    if method:
-      print >>sys.stderr, "Multiple request methods are not supported."
-      sys.exit(1)
-    else:
-      method = arg
-  elif opt in ("-d", "--data", "--data-ascii"):
-    putback_args.extend([opt, arg])
-    if data_ascii or data_binary:
-      print >>sys.stderr, "Multiple data arguments are not supported."
-      sys.exit(1)
-    else:
-      data_ascii = arg
-  elif opt in ("--data-binary"):
-    putback_args.extend([opt, arg])
-    if data_ascii or data_binary:
-      print >>sys.stderr, "Multiple data arguments are not supported."
-      sys.exit(1)
-    else:
-      data_binary = arg
-  elif opt in ("-F", "--form", "--form-string"):
-    print >>sys.stderr, "Form data is not supported."
-    sys.exit(1)
-  elif opt in ("--data-urlencode"):
-    print >>sys.stderr, "Form data is not supported."
-    sys.exit(1)
-  elif opt in ("-G", "--get"):
-    print >>sys.stderr, "The option %s is not supported." %opt
-    sys.exit(1)
-  elif opt == "--eg-config":
-    config = arg
-  elif opt == "--eg-section":
-    section = arg
-  elif opt == "--eg-verbose":
-    verbose = True
-  elif arg:
-    putback_args.extend([opt, arg])
-  else:
-    putback_args.extend([opt])
+    try:
+        opts, args = getopt.gnu_getopt(args, short_options, long_options)
+    except getopt.GetoptError:
+        log.error(usage)
+        return 1, args
 
-if not len(args):
-    print >>sys.stderr, "CURL_ARGS required"
-    print >>sys.stderr, ""
-    print >>sys.stderr, usage
-    sys.exit(1)
-    pass
-
-url = args[-1]
-
-host = get_host(url, headers)
-
-with open(config, "r") as f:
-  current_section = None
-  vals = {}
-  matched = False
-  for line in f.readlines():
-    if re.match("^\\s*($|#)", line): continue
-    m = re.match("^\\s*\\[(.+?)\\]\\s*$", line)
-
-    if m:
-        current_section = m.group(1)
-        continue
-
-    vals = { "host": 0,
-             "client_token": None,
-             "access_token": None,
-             "secret": None,
-             "max-body": None,
-             "signed-header": []}
-    flds = line.split()
-    for fld in flds:
-        m = re.match("^([^:]+):(.+)$", fld)
-        if not m: break
-        name = m.group(1)
-        val = m.group(2)
-        if name not in vals: break
-        if type(vals[name]) == list:
-            vals[name].append(val)
-        elif vals[name] == None or vals[name] == 0:
-            vals[name] = val
+    for opt, arg in opts:
+        if opt in ("-H", "--header"):
+            putback_args.extend([opt, arg])
+            if arg:
+                header_field = arg.strip()
+                header_name, header_value = header_field.split(":")
+                if header_name:
+                    header_name = header_name.strip()
+                if not header_name:
+                    log.error("Invalid header value.")
+                    return 1, args
+                if header_value:
+                    header_value = header_value.strip()
+                    if header_value:
+                        headers[header_name.lower()] = header_value
+        elif opt in ("-X", "--request"):
+            putback_args.extend([opt, arg])
+            if method:
+                log.error("Multiple request methods are not supported.")
+                return 1, args
+            else:
+                method = arg
+        elif opt in ("-d", "--data", "--data-ascii"):
+            putback_args.extend([opt, arg])
+            if data_ascii or data_binary:
+                log.error("Multiple data arguments are not supported.")
+                return 1, args
+            else:
+                data_ascii = arg
+        elif opt in ("--data-binary"):
+            putback_args.extend([opt, arg])
+            if data_ascii or data_binary:
+                log.error("Multiple data arguments are not supported.")
+                return 1, args
+            else:
+                data_binary = arg
+        elif opt in ("-F", "--form", "--form-string"):
+            log.error("Form data is not supported.")
+            return 1, args
+        elif opt in ("--data-urlencode"):
+            log.error("Form data is not supported.")
+            return 1, args
+        elif opt in ("-G", "--get"):
+            log.error("The option %s is not supported.", opt)
+            sys.exit(1)
+        elif opt == "--eg-config":
+            config_path = arg
+        elif opt == "--eg-section":
+            section = arg
+        elif opt == "--eg-verbose":
+            logging.getLogger('').setLevel(logging.DEBUG)
+        elif arg:
+            putback_args.extend([opt, arg])
         else:
+            putback_args.extend([opt])
+
+    return 0, args
+
+
+def _parse_fields(config, line, fields):
+    for field in fields:
+        log.debug("Config Field: [%s]", field)
+
+        match = re.match("^([^:]+):(.+)$", field)
+        if not match:
+            log.error("Config line: [%s] has invalid field [%s].", line, field)
+            return
+
+        key = match.group(1)
+        value = match.group(2)
+        log.debug("Config Key: [%s] Value: [%s]", key, value)
+
+        if key not in config.keys():
+            log.error("Config line: [%s] has nonexistent variable [%s].", line, key)
+            return
+
+        if type(config[key]) == list:
+            config[key].append(value)
+        elif not config[key]:
+            config[key] = value
+        else:
+            log.error("Config line: [%s] has duplicate variable [%s].", line, key)
             break
-        if name == 'max-body':
-            vals[name] = eval(val)
-    else:
-        if 0 not in vals.itervalues():
+
+def parse_configuration(host):
+    with open(config_path, "r") as f:
+        lines = f.readlines()
+
+    current_section = None
+    matched = False
+
+    for line in lines:
+        log.debug("Config line: %s", line)
+
+        if re.match("^\\s*($|#)", line):
+            continue
+
+        match = re.match("^\\s*\\[(.+?)\\]\\s*$", line)
+        if match:
+            current_section = match.group(1)
+            log.debug("Config section: %s", current_section)
+            continue
+
+        config = {
+            "host": 0,
+            "client_token": None,
+            "access_token": None,
+            "secret": None,
+            "max-body": None,
+            "signed-header": []
+        }
+        fields = line.split()
+        _parse_fields(config, line, fields)
+        config["max-body"] = int(config["max-body"])
+
+        if 0 not in config.itervalues():
             if current_section == section:
-                p = host.find(vals['host'])
-                if p == 0: 
-                    if verbose: print "Matched line for host %s" % host
+                p = host.find(config["host"])
+                if p == 0:
+                    log.debug("Matched line for host %s", host)
                     matched = True
                     break
                 pass
             continue
-        pass
-    raise ValueError("could not parse config line: " + line)
-  if not matched:
-    raise ValueError("could not find applicable config for host: " + host)
+        raise ValueError("could not parse config line: " + line)
 
-  if not vals['host']:
-    raise ValueError("cannot find matching host")
-  if not vals['client_token']:
-    raise ValueError("client_token is not configured")
-  if not vals['access_token']:
-    raise ValueError("access_token is not configured")
-  if not vals['secret']:
-    raise ValueError("secret is not configured")
-  if not vals['max-body']:
-    raise ValueError("max-body is not configured")
- 
-  # update the args with the signature
-  if verbose: print vals
-  signer = EGSigner(host,
-                    vals['client_token'],
-                    vals['access_token'],
-                    vals['secret'],
-                    vals['max-body'],
-                    vals['signed-header'])
-  
-  auth_header = signer.get_auth_header(url, method, headers, data_ascii, data_binary)
+    if not matched:
+        raise ValueError("could not find applicable config for host: " + host)
 
-  args = (putback_args + args)
-  args = (['-H', auth_header] + args)
-  args = (['curl'] + args + ['-H', 'Expect:'])
+    if not config["host"]:
+        raise ValueError("cannot find matching host")
+    if not config["client_token"]:
+        raise ValueError("client_token is not configured")
+    if not config["access_token"]:
+        raise ValueError("access_token is not configured")
+    if not config["secret"]:
+        raise ValueError("secret is not configured")
+    if not config["max-body"]:
+        raise ValueError("max-body is not configured")
 
-  if verbose: print "args = %s" % (args,)
-  sys.stdout.flush()
+    return config
 
-  os.execvp(args[0], args)
+def main(argv=None):
+    if argv is None:
+        argv = sys.argv
 
+    usage = "Usage: %s [--eg-config CONFIG] [--eg-section SECTION] [--eg-verbose] CURL_ARGS+" % argv[0]
 
+    sys.stdout = os.fdopen(sys.stdout.fileno(), "w", 0)
+
+    logging.basicConfig(
+        format="%(asctime)s: egcurl: %(levelname)s: %(message)s",
+        level=logging.INFO,
+        stream=sys.stderr)
+
+    if len(argv) < 1:
+        log.error("CURL_ARGS required")
+        log.error(usage)
+        return 1
+
+    rv, args = parse_arguments(argv[1:])
+    if rv: return rv
+
+    url = args[-1]
+    host = get_host(url, headers)
+    config = parse_configuration(host)
+
+    # update the args with the signature
+    signer = get_signer(config)
+    auth_header = signer.get_auth_header(url, method, headers, data_ascii, data_binary)
+
+    args = (putback_args + args)
+    args = (["-H", auth_header] + args)
+    args = (["curl"] + args + ["-H", "Expect:"])
+
+    log.debug("curl Arguments: %s", args)
+
+    os.execvp(args[0], args)
+
+if __name__ == "__main__":
+    sys.exit(main())
