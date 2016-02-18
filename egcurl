@@ -42,7 +42,8 @@ def get_host(url, headers):
 
 
 def get_relative_url(url):
-    return urlparse(url).path or "/"
+    urlp = urlparse(url)
+    return urlp.path + (('?' + urlp.query) if urlp.query else '') or "/"
 
 
 def sign(data, key, algorithm):
