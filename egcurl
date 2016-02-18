@@ -192,7 +192,7 @@ headers = {}
 putback_args = []
 
 def parse_arguments(args):
-    global method, data_ascii, data_binary, headers, putback_args
+    global method, data_ascii, data_binary, headers, putback_args, section
 
     short_options = "H:X:d:F:GA:D:e:fiIkK:Lm:MNo:Oqr:RsSvw:y:Y:#"
     long_options = [
