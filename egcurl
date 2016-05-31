@@ -25,6 +25,7 @@ import logging
 import urllib
 import uuid
 import re
+from pprint import pformat
 from time import gmtime, strftime
 from urlparse import urlparse
 
@@ -33,6 +34,10 @@ from urlparse import urlparse
 # no name
 # only one entry, no repeats
 # can handle @
+
+
+logging.basicConfig()
+logger = logging.getLogger(__name__)
 
 
 def get_host(url, headers):
@@ -82,7 +87,7 @@ class EGSigner(object):
     auth_data = self.get_auth_data(timestamp)
     request_data.append(auth_data)
     string_to_sign = '\t'.join(request_data)
-    if verbose: print "String-to-sign: %s" %(string_to_sign)
+    logger.info("String-to-sign: %s", string_to_sign)
 
     key_bytes = sign(bytes(timestamp), bytes(self.secret), hashlib.sha256)
     signing_key = base64.b64encode(key_bytes)
@@ -101,7 +106,7 @@ class EGSigner(object):
     auth_fields.append('')
     auth_data = ';'.join(auth_fields)
     auth_data = 'EG1-HMAC-SHA256 ' + auth_data
-    if verbose: print "Auth data: %s" %(auth_data)
+    logger.info("Auth data: %s", auth_data)
     return auth_data
 
 
@@ -128,7 +133,7 @@ class EGSigner(object):
   def get_canonicalize_headers(self, headers):
     canonical_header = ''
     headers_values = []
-    if verbose: print self.signed_headers
+    logger.info("Signed headers: %s", pformat(self.signed_headers))
     for header_name in self.signed_headers:
       header_value = ''
       if header_name in headers:
@@ -141,7 +146,7 @@ class EGSigner(object):
         headers_values.append(canonical_header)
     headers_values.append('')
     canonical_header = '\t'.join(headers_values)
-    if verbose: print "Canonicalized header: %s" %(canonical_header)
+    logger.info("Canonicalized header: %s", canonical_header)
     return canonical_header
 
 
@@ -177,9 +182,9 @@ class EGSigner(object):
         #    raise Exception('Data too large, max size is %s' %(self.max_body))
 
         if len(data) > self.max_body:
-          if verbose: print "Data length %s larger than maximum %s " % (len(data),self.max_body)
+          logger.info("Data length %s is larger than maximum %s", len(data), self.max_body)
           data = data[0:self.max_body]
-          if verbose: print "Data truncated to %s for computing the hash" % len(data)
+          logger.info("Data truncated to %s for computing the hash", len(data))
 
         # compute the hash
         md = hashlib.sha256(data).digest()
@@ -203,7 +208,7 @@ try:
   opts, args = getopt.gnu_getopt(args,"H:X:d:F:GA:D:e:fiIkK:Lm:MNo:Oqr:RsSvw:y:Y:#",
     ["eg-config=","eg-section=","eg-verbose","header=","request=","data=","data-ascii=","data-binary=","data-urlencode=","form=","form-string=","get","user-agent=","compressed","connect-timeout=","create-dirs","dump-header=","referer=","fail","ignore-content-length","include","interface=","head","insecure","keepalive-time=","config=","limit-rate=","local-port=","location","max-filesize=","max-time=","manual","no-buffer","buffer","no-keepalive","keepalive","no-sessionid","sessionid","noproxy=","output=","remote-name","remote-name-all","no-remote-name","post301","post302","range=","raw","remote-time","retry=","retry-delay=","retry-max-time=","silent","show-error","stderr=","tcp-nodelay","trace=","trace-ascii=","trace-time","verbose","write-out=","speed-time=","speed-limit","progress-bar"])
 except getopt.GetoptError:
-  print >>sys.stderr, usage
+  logger.error(usage)
   sys.exit(1)
 
 for opt, arg in opts:
@@ -215,7 +220,7 @@ for opt, arg in opts:
       if header_name:
         header_name = header_name.strip()
       if not header_name:
-        print >>sys.stderr, "Invalid header value."
+        logger.error("Invalid header value: %s", header_name)
         sys.exit(1)
       if header_value:
         header_value = header_value.strip()
@@ -224,32 +229,32 @@ for opt, arg in opts:
   elif opt in ("-X", "--request"):
     putback_args.extend([opt, arg])
     if method:
-      print >>sys.stderr, "Multiple request methods are not supported."
+      logger.error("Multiple request methods are not supported.")
       sys.exit(1)
     else:
       method = arg
   elif opt in ("-d", "--data", "--data-ascii"):
     putback_args.extend([opt, arg])
     if data_ascii or data_binary:
-      print >>sys.stderr, "Multiple data arguments are not supported."
+      logger.error("Multiple data arguments are not supported.")
       sys.exit(1)
     else:
       data_ascii = arg
   elif opt in ("--data-binary"):
     putback_args.extend([opt, arg])
     if data_ascii or data_binary:
-      print >>sys.stderr, "Multiple data arguments are not supported."
+      logger.error("Multiple data arguments are not supported.")
       sys.exit(1)
     else:
       data_binary = arg
   elif opt in ("-F", "--form", "--form-string"):
-    print >>sys.stderr, "Form data is not supported."
+    logger.error("Form data is not supported.")
     sys.exit(1)
   elif opt in ("--data-urlencode"):
-    print >>sys.stderr, "Form data is not supported."
+    logger.error("Form data is not supported.")
     sys.exit(1)
   elif opt in ("-G", "--get"):
-    print >>sys.stderr, "The option %s is not supported." %opt
+    logger.error("The option %s is not supported.", opt)
     sys.exit(1)
   elif opt == "--eg-config":
     config = arg
@@ -262,10 +267,11 @@ for opt, arg in opts:
   else:
     putback_args.extend([opt])
 
+if verbose: logger.setLevel(logging.INFO)
+
 if not len(args):
-    print >>sys.stderr, "CURL_ARGS required"
-    print >>sys.stderr, ""
-    print >>sys.stderr, usage
+    logger.error("CURL_ARGS required")
+    logger.info(usage)
     sys.exit(1)
     pass
 
@@ -311,7 +317,7 @@ with open(config, "r") as f:
             if current_section == section:
                 p = host.find(vals['host'])
                 if p == 0:
-                    if verbose: print "Matched line for host %s" % host
+                    logger.info("Matched line for host %s", host)
                     matched = True
                     break
                 pass
@@ -333,7 +339,7 @@ with open(config, "r") as f:
     raise ValueError("max-body is not configured")
 
   # update the args with the signature
-  if verbose: print vals
+  logger.info("Authorization values: %s", pformat(vals))
   signer = EGSigner(host,
                     vals['client_token'],
                     vals['access_token'],
@@ -347,7 +353,7 @@ with open(config, "r") as f:
   args = (['-H', auth_header] + args)
   args = (['curl'] + args + ['-H', 'Expect:'])
 
-  if verbose: print "args = %s" % (args,)
+  logger.info("args = %s", args)
   sys.stdout.flush()
 
   os.execvp(args[0], args)
