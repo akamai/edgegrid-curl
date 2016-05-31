@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-import getopt
+import argparse
 import hashlib
 import base64
 import hmac
@@ -112,13 +112,6 @@ class EGSigner(object):
 
   def get_request_data(self, url, method, headers, data_ascii, data_binary):
     requst_data = []
-    if not method:
-      if data_ascii or data_binary:
-        method = 'POST'
-      else:
-        method = 'GET'
-    else:
-      method = method.upper()
     requst_data.append(method)
 
     parsed_url = urlparse(url)
@@ -192,90 +185,78 @@ class EGSigner(object):
     return content_hash
 
 
-config = os.environ["HOME"] + "/.egcurl"
-section = "default"
-verbose = False
-method = None
-data_ascii = None
-data_binary = None
+parser = argparse.ArgumentParser(description='Akamai {OPEN} API utility for signed API requests with cURL.',
+                                 epilog='Several arguments above as well as any unlisted arguments are passed on to curl. The <url> argument should always be the final argument.')
+parser.add_argument('-H', '--header',
+                    action='append',
+                    help='HTTP headers to pass on to cURL (repeatable)')
+parser.add_argument("--eg-config",
+                    default=os.environ["HOME"] + "/.egcurl",
+                    help='Location of configuration ini file.')
+parser.add_argument("--eg-section",
+                    default = "default",
+                    help='Section of the config file for the desired OPEN API credentials.')
+parser.add_argument('--eg-verbose',
+                    default=False,
+                    help='Enable verbose logging output',
+                    action='store_true')
+group = parser.add_mutually_exclusive_group()
+group.add_argument('-d', '--data', '--data-ascii',
+                    help='ASCII data content for POST body')
+group.add_argument('--data-binary',
+                    help='binary data content for POST body')
+parser.add_argument('-X', '--method',
+                    choices=['DELETE', 'GET', 'POST', 'PUT'],
+                    help='HTTP method for the request',
+                    default='GET')
+parser.add_argument('url',
+                    help='Request URL')
+
+(args, args_unknown) = parser.parse_known_args()
+
+if args.eg_verbose:
+  logger.setLevel(logging.INFO)
+
+logger.info('Parsed known arguments: %s', pformat(args))
+logger.debug('Pass-through cURL arguments: %s', pformat(args_unknown))
+
+config = args.eg_config
+method = args.method
+data_ascii = args.data
+data_binary = args.data_binary
+url = args.url
+
+disallowed_parser = argparse.ArgumentParser()
+disallowed_parser.add_argument("-F")
+disallowed_parser.add_argument("--form")
+disallowed_parser.add_argument("--form-string")
+disallowed_parser.add_argument("--data-urlencode")
+disallowed_parser.add_argument("-G", "--get", default=None, action='store_true')
+(args_bad, args_remainder)  = disallowed_parser.parse_known_args(args_unknown)
+
+logger.debug('Disallowed cURL arguments: %s', pformat(args_bad))
+
+unacceptable = []
+for (key, val) in vars(args_bad).items():
+  if val != None:
+    unacceptable.append(key)
+
+if len(unacceptable) != 0:
+  raise ValueError("Unsupported cURL arguments found: " + ', '.join(unacceptable))
+
 headers = {}
-putback_args = []
-
-usage = "Usage: %s [--eg-config CONFIG] [--eg-section SECTION] [--eg-verbose] CURL_ARGS+" % sys.argv[0]
-
-args = sys.argv[1:]
-try:
-  opts, args = getopt.gnu_getopt(args,"H:X:d:F:GA:D:e:fiIkK:Lm:MNo:Oqr:RsSvw:y:Y:#",
-    ["eg-config=","eg-section=","eg-verbose","header=","request=","data=","data-ascii=","data-binary=","data-urlencode=","form=","form-string=","get","user-agent=","compressed","connect-timeout=","create-dirs","dump-header=","referer=","fail","ignore-content-length","include","interface=","head","insecure","keepalive-time=","config=","limit-rate=","local-port=","location","max-filesize=","max-time=","manual","no-buffer","buffer","no-keepalive","keepalive","no-sessionid","sessionid","noproxy=","output=","remote-name","remote-name-all","no-remote-name","post301","post302","range=","raw","remote-time","retry=","retry-delay=","retry-max-time=","silent","show-error","stderr=","tcp-nodelay","trace=","trace-ascii=","trace-time","verbose","write-out=","speed-time=","speed-limit","progress-bar"])
-except getopt.GetoptError:
-  logger.error(usage)
-  sys.exit(1)
-
-for opt, arg in opts:
-  if opt in ("-H", "--header"):
-    putback_args.extend([opt, arg])
-    if arg:
-      header_field = arg.strip()
-      header_name, header_value = header_field.split(':')
-      if header_name:
-        header_name = header_name.strip()
-      if not header_name:
-        logger.error("Invalid header value: %s", header_name)
-        sys.exit(1)
-      if header_value:
-        header_value = header_value.strip()
-        if header_value:
-          headers[header_name.lower()] = header_value
-  elif opt in ("-X", "--request"):
-    putback_args.extend([opt, arg])
-    if method:
-      logger.error("Multiple request methods are not supported.")
-      sys.exit(1)
-    else:
-      method = arg
-  elif opt in ("-d", "--data", "--data-ascii"):
-    putback_args.extend([opt, arg])
-    if data_ascii or data_binary:
-      logger.error("Multiple data arguments are not supported.")
-      sys.exit(1)
-    else:
-      data_ascii = arg
-  elif opt in ("--data-binary"):
-    putback_args.extend([opt, arg])
-    if data_ascii or data_binary:
-      logger.error("Multiple data arguments are not supported.")
-      sys.exit(1)
-    else:
-      data_binary = arg
-  elif opt in ("-F", "--form", "--form-string"):
-    logger.error("Form data is not supported.")
+for header in args.header:
+  header_field = header.strip()
+  header_name, header_value = header_field.split(':')
+  if header_name:
+    header_name = header_name.strip()
+  if not header_name:
+    logger.error("Invalid header value: %s", header_name)
     sys.exit(1)
-  elif opt in ("--data-urlencode"):
-    logger.error("Form data is not supported.")
-    sys.exit(1)
-  elif opt in ("-G", "--get"):
-    logger.error("The option %s is not supported.", opt)
-    sys.exit(1)
-  elif opt == "--eg-config":
-    config = arg
-  elif opt == "--eg-section":
-    section = arg
-  elif opt == "--eg-verbose":
-    verbose = True
-  elif arg:
-    putback_args.extend([opt, arg])
-  else:
-    putback_args.extend([opt])
-
-if verbose: logger.setLevel(logging.INFO)
-
-if not len(args):
-    logger.error("CURL_ARGS required")
-    logger.info(usage)
-    sys.exit(1)
-    pass
-
-url = args[-1]
+  if header_value:
+    header_value = header_value.strip()
+    if header_value:
+      headers[header_name.lower()] = header_value
 
 host = get_host(url, headers)
 
@@ -314,7 +295,7 @@ with open(config, "r") as f:
             vals[name] = eval(val)
     else:
         if 0 not in vals.itervalues():
-            if current_section == section:
+            if current_section == args.eg_section:
                 p = host.find(vals['host'])
                 if p == 0:
                     logger.info("Matched line for host %s", host)
@@ -349,11 +330,16 @@ with open(config, "r") as f:
 
   auth_header = signer.get_auth_header(url, method, headers, data_ascii, data_binary)
 
-  args = (putback_args + args)
-  args = (['-H', auth_header] + args)
-  args = (['curl'] + args + ['-H', 'Expect:'])
+  curl_args = ([ 'curl', '-X', method, '-H', auth_header, '-H', 'Expect:' ])
+  for header in args.header:
+    curl_args.extend([ '-H', header ])
+  if args.data:
+    curl_args.extend([ '--data', args.data ])
+  if args.data_binary:
+    curl_args.extend([ '--data-binary', args.data_binary ])
+  curl_args.extend(args_unknown + [ url ])
 
-  logger.info("args = %s", args)
+  logger.info("cURL arguments: %s", pformat(curl_args))
   sys.stdout.flush()
 
-  os.execvp(args[0], args)
+  os.execvp(curl_args[0], curl_args)
