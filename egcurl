@@ -63,7 +63,7 @@ def get_relative_url(url):
 def sign(data, key, algorithm):
   result = hmac.new(key, data, algorithm)
   return result.digest()
- 
+
 
 class EGSigner(object):
   def __init__(self, host, client_token, access_token, secret, max_body, signed_headers=None):
@@ -75,7 +75,7 @@ class EGSigner(object):
     self.signed_headers = signed_headers
 
 
-  def get_auth_header(self, url, method, headers, data_ascii, data_binary):  
+  def get_auth_header(self, url, method, headers, data_ascii, data_binary):
     timestamp = strftime("%Y%m%dT%H:%M:%S+0000", gmtime())
 
     request_data = self.get_request_data(url, method, headers, data_ascii, data_binary)
@@ -115,7 +115,7 @@ class EGSigner(object):
     else:
       method = method.upper()
     requst_data.append(method)
-    
+
     parsed_url = urlparse(url)
     requst_data.append(parsed_url.scheme)
     requst_data.append(self.host)
@@ -126,7 +126,7 @@ class EGSigner(object):
 
 
   def get_canonicalize_headers(self, headers):
-    canonical_header = '' 
+    canonical_header = ''
     headers_values = []
     if verbose: print self.signed_headers
     for header_name in self.signed_headers:
@@ -136,7 +136,7 @@ class EGSigner(object):
       if header_value:
         header_value = header_value.strip()
         p = re.compile('\\s+')
-        new_value = p.sub(' ', header_value) 
+        new_value = p.sub(' ', header_value)
         canonical_header = header_name + ':' + new_value
         headers_values.append(canonical_header)
     headers_values.append('')
@@ -310,7 +310,7 @@ with open(config, "r") as f:
         if 0 not in vals.itervalues():
             if current_section == section:
                 p = host.find(vals['host'])
-                if p == 0: 
+                if p == 0:
                     if verbose: print "Matched line for host %s" % host
                     matched = True
                     break
@@ -331,7 +331,7 @@ with open(config, "r") as f:
     raise ValueError("secret is not configured")
   if not vals['max-body']:
     raise ValueError("max-body is not configured")
- 
+
   # update the args with the signature
   if verbose: print vals
   signer = EGSigner(host,
@@ -340,7 +340,7 @@ with open(config, "r") as f:
                     vals['secret'],
                     vals['max-body'],
                     vals['signed-header'])
-  
+
   auth_header = signer.get_auth_header(url, method, headers, data_ascii, data_binary)
 
   args = (putback_args + args)
@@ -351,5 +351,3 @@ with open(config, "r") as f:
   sys.stdout.flush()
 
   os.execvp(args[0], args)
-
-
