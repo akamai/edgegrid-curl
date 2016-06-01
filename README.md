@@ -1,6 +1,6 @@
 # edgegrid-curl
 
-Python-based command wrapper for cURL to sign requests for Akamai {OPEN} APIs.
+Python-based command wrapper for cURL to sign requests for Akamai OPEN APIs.
 
 ## CHANGES
 2016-06-01
@@ -13,7 +13,7 @@ Python-based command wrapper for cURL to sign requests for Akamai {OPEN} APIs.
 
 ## SUMMARY
 
-egcurl is a simple wrapper around cURL to help with calling Akamai {OPEN} APIs. The script examines a subset of curl command arguments in order to produce a request signature, then uses curl to make the API call with all the original arguments plus the computed request signature.
+egcurl is a simple wrapper around cURL to help with calling Akamai OPEN APIs. The script examines a subset of curl command arguments in order to produce a request signature, then uses curl to make the API call with all the original arguments plus the computed request signature.
 
 egcurl requires Python 2.x where x >= 7 on a \*nix platform. It depends on curl to make API calls.
 
@@ -74,7 +74,7 @@ usage: egcurl [-h] [-H HEADER] [--eg-config EG_CONFIG]
               [-d DATA | --data-binary DATA_BINARY] [-X {DELETE,GET,POST,PUT}]
               url
 
-Akamai {OPEN} API utility for signed API requests with cURL.
+Akamai OPEN API utility for signed API requests with cURL.
 
 positional arguments:
   url                   Request URL
