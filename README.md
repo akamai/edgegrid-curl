@@ -2,6 +2,14 @@
 
 Python based command line tool which simplies EdgeGrid Client Authentication
 
+Note that there is now a simpler command line utility, httpie, which uses the same authentication mechanism as our language signing libraries.  It is available [here](https://github.com/akamai-open/httpie-edgegrid) or by calling 
+
+```
+pip install httpie-edgegrid
+```
+
+The examples and guides on the developer portal are moving to this new tool, so please consider using it for your API calls.
+
 ## CHANGES
 
 May 13th 2014
