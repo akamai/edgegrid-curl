@@ -219,7 +219,7 @@ def get_parser():
                       help='Request URL')
   (args, args_unknown) = parser.parse_known_args()
   if args.eg_verbose:
-    log.setLevel(logging.INFO)
+    log.setLevel(logging.DEBUG)
 
   log.info('Parsed known arguments: %s', pformat(args))
   log.debug('Pass-through cURL arguments: %s', pformat(args_unknown))
