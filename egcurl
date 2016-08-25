@@ -16,17 +16,11 @@
 #
 
 import argparse
-import hashlib
-import base64
-import hmac
 import os
 import sys
 import logging
-import urllib
-import uuid
 import re
 from pprint import pformat
-from time import gmtime, strftime
 from urlparse import urlparse
 
 # data handling
@@ -38,131 +32,41 @@ from urlparse import urlparse
 logging.basicConfig()
 log = logging.getLogger(__name__)
 
+class MockRequest:
+    def __init__(self, data_ascii, data_binary, headers, method, url):
+        self.body = self.get_data(data_ascii, data_binary)
+        log.info("body: %s", self.body)
+        self.headers= headers or {}
+        self.method = method
+        self.url = url
+
+    def get_data(self, data_ascii, data_binary):
+        data = ''
+        if data_ascii:
+            data = data_ascii
+        elif data_binary:
+            data = data_binary
+        # only hash POST for now
+        if data and data.startswith("@"):
+            data_file = data.lstrip("@")
+            try:
+                if not os.path.isfile(data_file):
+                    raise Exception('%s is not a file' %(data_file))
+                filesize = os.stat(data_file).st_size
+                # read the file content, and assign to data
+                with open(data_file, "r") as f:
+                    data = f.read()
+                    if data_ascii:
+                        data = ''.join(data.splitlines())
+                    return data
+            except IOError:
+                raise
+
+    def register_hook(self, ignoredA, ignoredB):
+        return
+
 def get_host(url, headers):
     return urlparse(url).netloc.split(":")[0].lower()
-
-def get_relative_url(url):
-    return urlparse(url).path or "/"
-
-def sign(data, key, algorithm):
-    result = hmac.new(key, data, algorithm)
-    return result.digest()
-
-class EGSigner(object):
-  def __init__(self, host, client_token, access_token, secret, max_body, signed_headers=None):
-    self.host = host
-    self.client_token = client_token
-    self.access_token = access_token
-    self.secret = secret
-    self.max_body = max_body
-    self.signed_headers = signed_headers
-
-  def get_auth_header(self, url, method, headers, data_ascii, data_binary):
-    result = self.get_auth_header_value(url, method, headers, data_ascii, data_binary)
-    auth_header = "Authorization: %s" % result
-    return auth_header
-
-  def get_auth_header_value(self, url, method, headers, data_ascii, data_binary):
-    timestamp = strftime("%Y%m%dT%H:%M:%S+0000", gmtime())
-
-    request_data = self.get_request_data(url, method, headers, data_ascii, data_binary)
-    auth_data = self.get_auth_data(timestamp)
-    request_data.append(auth_data)
-    string_to_sign = "\t".join(request_data)
-    log.debug("String-to-sign: %s", string_to_sign)
-
-    key_bytes = sign(bytes(timestamp), bytes(self.secret), hashlib.sha256)
-    signing_key = base64.b64encode(key_bytes)
-    signature_bytes = sign(bytes(string_to_sign), bytes(signing_key), hashlib.sha256)
-    signature = base64.b64encode(signature_bytes)
-    auth_value = "%ssignature=%s" % (auth_data, signature)
-    return auth_value
-
-  def get_auth_data(self, timestamp):
-    auth_fields = []
-    auth_fields.append('client_token=' + self.client_token)
-    auth_fields.append('access_token=' + self.access_token)
-    auth_fields.append('timestamp=' + timestamp)
-    auth_fields.append('nonce=' + str(uuid.uuid4()))
-    auth_fields.append('')
-    auth_data = ';'.join(auth_fields)
-    auth_data = 'EG1-HMAC-SHA256 ' + auth_data
-    log.info("Auth data: %s", auth_data)
-    return auth_data
-
-
-  def get_request_data(self, url, method, headers, data_ascii, data_binary):
-    request_data = []
-    if not method:
-      if data_ascii or data_binary:
-        method = "POST"
-      else:
-        method = "GET"
-    else:
-        method = method.upper()
-    request_data.append(method)
-
-    parsed_url = urlparse(url)
-    request_data.append(parsed_url.scheme)
-    request_data.append(self.host)
-    request_data.append(get_relative_url(url))
-    request_data.append(self.get_canonicalize_headers(headers))
-    request_data.append(self.get_content_hash(method, data_ascii, data_binary))
-    return request_data
-
-  def get_canonicalize_headers(self, headers):
-    canonical_header = ''
-    headers_values = []
-    log.info("Signed headers: %s", pformat(self.signed_headers))
-    for header_name in self.signed_headers:
-      header_value = ''
-      if header_name in headers:
-        header_value = headers[header_name]
-      if header_value:
-        header_value = header_value.strip()
-        p = re.compile('\\s+')
-        new_value = p.sub(' ', header_value)
-        canonical_header = header_name + ':' + new_value
-        headers_values.append(canonical_header)
-    headers_values.append('')
-    canonical_header = '\t'.join(headers_values)
-    log.info("Canonicalized header: %s", canonical_header)
-    return canonical_header
-
-  def get_content_hash(self, method, data_ascii, data_binary):
-    content_hash = ''
-    data = ''
-    if data_ascii:
-      data = data_ascii
-    elif data_binary:
-      data = data_binary
-
-    # only hash POST for now
-    if method == 'POST':
-      if data:
-        if data.startswith("@"):
-          data_file = data.lstrip("@")
-          try:
-            if not os.path.isfile(data_file):
-              raise Exception('%s is not a file' %(data_file))
-            filesize = os.stat(data_file).st_size
-            # read the file content, and assign to data
-            with open(data_file, "r") as f:
-              data = f.read()
-              if data_ascii:
-                data = ''.join(data.splitlines())
-          except IOError:
-            raise
-
-        if len(data) > self.max_body:
-          log.info("Data length %s is larger than maximum %s", len(data), self.max_body)
-          data = data[0:self.max_body]
-          log.info("Data truncated to %s for computing the hash", len(data))
-
-        # compute the hash
-        md = hashlib.sha256(data).digest()
-        content_hash = base64.b64encode(md)
-    return content_hash
 
 def _parse_fields(config, line, fields):
     for field in fields:
@@ -318,16 +222,21 @@ def main():
 
     # update the args with the signature
     log.info("Authorization values: %s", pformat(config))
-    signer = EGSigner(host,
-                      config['client_token'],
-                      config['access_token'],
-                      config['secret'],
-                      config['max-body'],
-                      config['signed-header'])
 
-    auth_header = signer.get_auth_header(url, method, headers, data_ascii, data_binary)
+    auth = EdgeGridAuth(
+      access_token=config['access_token'],
+      client_secret=config['secret'],
+      client_token=config['client_token'],
+      headers_to_sign=config['signed-header'],
+      max_body=config['max-body']
+    )
 
-    curl_args = ([ 'curl', '-X', method, '-H', auth_header, '-H', 'Expect:' ])
+    r = MockRequest(data_ascii, data_binary, headers, method, url)
+    auth(r)
+    auth_header = r.headers['Authorization']
+    log.info("Authorization header: %s", auth_header)
+
+    curl_args = ([ 'curl', '-X', method, '-H', 'Authorization:' + auth_header, '-H', 'Expect:' ])
     for header in args.header:
       curl_args.extend([ '-H', header ])
     if args.data:
@@ -342,4 +251,15 @@ def main():
     os.execvp(curl_args[0], curl_args)
 
 if __name__ == "__main__":
+    if not 'akamai' in sys.modules:
+        print("""
+This tool has been updated to use the Akamai EdgeGrid for Python library
+to sign requests. That library will need to be installed before you can
+make a request.
+
+Please run this command to install the required library:
+
+pip install edgegrid-python""")
+        sys.exit(1)
+    from akamai.edgegrid import EdgeGridAuth
     sys.exit(main())
