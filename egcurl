@@ -55,13 +55,11 @@ def get_host(url, headers):
 
 
 def get_relative_url(url):
-    relative_url = ''
-    auth_index = url.find('//')
-    path_index = url.find('/', auth_index+2)
-    if path_index == -1:
-      relative_url = '/'
-    else:
-      relative_url = url[path_index:]
+    url_parts = urlparse(url)
+    relative_url = url_parts.path or '/'
+    if url_parts.query:
+       relative_url += '?'
+       relative_url += url_parts.query
     return relative_url
 
 
@@ -189,6 +187,7 @@ parser = argparse.ArgumentParser(description='Akamai {OPEN} API utility for sign
                                  epilog='Several arguments above as well as any unlisted arguments are passed on to curl. The <url> argument should always be the final argument.')
 parser.add_argument('-H', '--header',
                     action='append',
+		    default = [],
                     help='HTTP headers to pass on to cURL (repeatable)')
 parser.add_argument("--eg-config",
                     default=os.environ["HOME"] + "/.egcurl",
@@ -245,18 +244,19 @@ if len(unacceptable) != 0:
   raise ValueError("Unsupported cURL arguments found: " + ', '.join(unacceptable))
 
 headers = {}
-for header in args.header:
-  header_field = header.strip()
-  header_name, header_value = header_field.split(':')
-  if header_name:
-    header_name = header_name.strip()
-  if not header_name:
-    logger.error("Invalid header value: %s", header_name)
-    sys.exit(1)
-  if header_value:
-    header_value = header_value.strip()
+if args.header:
+  for header in args.header:
+    header_field = header.strip()
+    header_name, header_value = header_field.split(':')
+    if header_name:
+      header_name = header_name.strip()
+    if not header_name:
+      logger.error("Invalid header value: %s", header_name)
+      sys.exit(1)
     if header_value:
-      headers[header_name.lower()] = header_value
+      header_value = header_value.strip()
+      if header_value:
+        headers[header_name.lower()] = header_value
 
 host = get_host(url, headers)
 
