@@ -2,7 +2,9 @@
 
 Python-based command wrapper for cURL to sign requests for Akamai OPEN APIs.
 
-Note that there is now a simpler command line utility, httpie, which uses the same authentication mechanism as our language signing libraries.  It is available [here](https://github.com/akamai-open/httpie-edgegrid) or by calling 
+egcurl is a simple wrapper around cURL to help with calling Akamai OPEN APIs. The script examines a subset of curl command arguments in order to produce a request signature, then uses curl to make the API call with all the original arguments plus the computed request signature.
+
+Note that there is now a simpler command line utility, httpie, which doesn't depend on you already knowing how to use cURL. It is available [here](https://github.com/akamai-open/httpie-edgegrid) or by calling
 
 ```
 pip install httpie-edgegrid
@@ -11,6 +13,9 @@ pip install httpie-edgegrid
 The examples and guides on the developer portal are moving to this new tool, so please consider using it for your API calls.
 
 ## CHANGES
+2016-08-25
+* Use EdgeGridAuth to sign requests.
+
 2016-06-01
 * Use logging module for logging.
 * Replace getopt argument parsing code with argparse (requires python 2.7+)
@@ -19,11 +24,11 @@ The examples and guides on the developer portal are moving to this new tool, so 
 * (GRID-231) A POST request body larger than the content hash max-body is allowed but only the first (max-body) bytes are used in the [Content hash aspect of the request signature](https://developer.akamai.com/stuff/Getting_Started_with_OPEN_APIs/Client_Auth.html).
 
 
-## SUMMARY
+## INSTALLATION
 
-egcurl is a simple wrapper around cURL to help with calling Akamai OPEN APIs. The script examines a subset of curl command arguments in order to produce a request signature, then uses curl to make the API call with all the original arguments plus the computed request signature.
-
-egcurl requires Python 2.x where x >= 7 on a \*nix platform. It depends on curl to make API calls.
+1. Install python 2.7 or newer. If you are running GNU/Linux or Mac OS X, you probably already have it.
+2. Install curl. The script expects to find it in your path.
+3. Install edgegrid-python. This is used to sign requests. (`pip install edgegrid-python`)
 
 
 ## CONFIGURATION
