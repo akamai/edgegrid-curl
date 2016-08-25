@@ -64,20 +64,20 @@ class EGSigner(object):
 
   def get_auth_header_value(self, url, method, headers, data_ascii, data_binary):
     timestamp = strftime("%Y%m%dT%H:%M:%S+0000", gmtime())
- 
+
     request_data = self.get_request_data(url, method, headers, data_ascii, data_binary)
     auth_data = self.get_auth_data(timestamp)
     request_data.append(auth_data)
     string_to_sign = "\t".join(request_data)
     log.debug("String-to-sign: %s", string_to_sign)
- 
+
     key_bytes = sign(bytes(timestamp), bytes(self.secret), hashlib.sha256)
     signing_key = base64.b64encode(key_bytes)
     signature_bytes = sign(bytes(string_to_sign), bytes(signing_key), hashlib.sha256)
     signature = base64.b64encode(signature_bytes)
     auth_value = "%ssignature=%s" % (auth_data, signature)
     return auth_value
- 
+
   def get_auth_data(self, timestamp):
     auth_fields = []
     auth_fields.append('client_token=' + self.client_token)
@@ -153,7 +153,7 @@ class EGSigner(object):
                 data = ''.join(data.splitlines())
           except IOError:
             raise
-        
+
         if len(data) > self.max_body:
           log.info("Data length %s is larger than maximum %s", len(data), self.max_body)
           data = data[0:self.max_body]
@@ -188,12 +188,13 @@ def _parse_fields(config, line, fields):
       else:
           log.error("Config line: [%s] has duplicate variable [%s].", line, key)
           break
+
 def get_parser():
   parser = argparse.ArgumentParser(description='Akamai {OPEN} API utility for signed API requests with cURL.',
                                   epilog='Several arguments above as well as any unlisted arguments are passed on to curl. The <url> argument should always be the final argument.')
   parser.add_argument('-H', '--header',
                       action='append',
-          default = [],
+                      default = [],
                       help='HTTP headers to pass on to cURL (repeatable)')
   parser.add_argument("--eg-config",
                       default=os.environ["HOME"] + "/.egcurl",
@@ -241,7 +242,7 @@ def get_parser():
     parser.error("Unsupported cURL arguments found: " + ', '.join(unacceptable))
 
   return (args, args_unknown)
-  
+
 def main():
   (args, args_unknown) = get_parser()
 
