@@ -163,6 +163,7 @@ class EGSigner(object):
         md = hashlib.sha256(data).digest()
         content_hash = base64.b64encode(md)
     return content_hash
+
 def _parse_fields(config, line, fields):
     for field in fields:
       log.debug("Config Field: [%s]", field)
@@ -217,7 +218,7 @@ def get_parser():
                       help='Request URL')
   (args, args_unknown) = parser.parse_known_args()
   if args.eg_verbose:
-    logger.setLevel(logging.INFO)
+    log.setLevel(logging.INFO)
 
   log.info('Parsed known arguments: %s', pformat(args))
   log.debug('Pass-through cURL arguments: %s', pformat(args_unknown))
@@ -259,7 +260,7 @@ def main():
       if header_name:
         header_name = header_name.strip()
       if not header_name:
-        logger.error("Invalid header value: %s", header_name)
+        log.error("Invalid header value: %s", header_name)
         sys.exit(1)
       if header_value:
         header_value = header_value.strip()
@@ -273,7 +274,7 @@ def main():
     config = {}
     matched = False
     for line in f.readlines():
-      if re.match("^\\s*($|#)", line): continue
+      if re.match("^\\s*($|#|;)", line): continue
       m = re.match("^\\s*\\[(.+?)\\]\\s*$", line)
 
       if m:
