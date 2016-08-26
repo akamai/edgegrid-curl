@@ -15,6 +15,7 @@ The examples and guides on the developer portal are moving to this new tool, so 
 ## CHANGES
 2016-08-25
 * Use EdgeGridAuth to sign requests.
+* Automatically use hostname specified by configuration section.
 
 2016-06-01
 * Use logging module for logging.
@@ -78,6 +79,8 @@ There are several restrictions on specifying the request data for POST and PUT r
 2. Only one data option can be used on the same command line.
 3. If the data starts with the letter "`@`", the rest is treated as the name of the file to read the data from. Only one file can be specified on the same command line.
 
+The hostname segment of the url will be automatically replaced with the hostname indicated by the selected configuration section.
+
 ## USAGE
 
 ```
@@ -110,7 +113,9 @@ optional arguments:
                         HTTP method for the request
 
 Several arguments above as well as any unlisted arguments are passed on to
-curl. The <url> argument should always be the final argument.
+curl. The <url> argument should always be the final argument. The url hostname
+will automatically be replaced with the one specified by the selected
+configuration section.
 ```
 
 ## EXAMPLE
@@ -125,5 +130,5 @@ host:akaa-u5x3btzf44hplb4q-6jrzwnvo7llch3po.luna.akamaiapis.net client_token:aka
 Here is an example invocation:
 
 ```
-egcurl -sSik 'https://akaa-u5x3btzf44hplb4q-6jrzwnvo7llch3po.luna.akamaiapis.net/billing-usage/v1/reportSources'
+egcurl -sSik 'https://luna.akamaiapis.net/billing-usage/v1/reportSources'
 ```

@@ -16,12 +16,12 @@
 #
 
 import argparse
+import urlparse
 import os
 import sys
 import logging
 import re
 from pprint import pformat
-from urlparse import urlparse
 
 # data handling
 # only handles -d/--data/--data-ascii/--data-binary
@@ -65,10 +65,41 @@ class MockRequest:
     def register_hook(self, ignoredA, ignoredB):
         return
 
-def get_host(url, headers):
-    return urlparse(url).netloc.split(":")[0].lower()
+def _parse_egcurl(file):
+    configs = {}
+    with open(file, "r") as f:
+        current_section = None
+        for line in f.readlines():
+            if re.match("^\\s*($|#|;)", line): continue
 
-def _parse_fields(config, line, fields):
+            m = re.match("^\\s*\\[(.+?)\\]\\s*$", line)
+            if m:
+                current_section = m.group(1)
+                continue
+
+            config = {
+                "access_token": None,
+                "client_token": None,
+                "host": None,
+                "max-body": None,
+                "secret": None,
+                "signed-header": []
+            }
+            _parse_fields(config, line)
+            if config["max-body"]:
+                config["max-body"] = int(config["max-body"])
+            else:
+                config["max-body"] = 131072
+
+            if None in config.itervalues():
+                log.warn("Bad config line in section '%s': %s", current_section, line)
+            else:
+                configs[current_section] = config
+
+    return configs
+
+def _parse_fields(config, line):
+    fields = line.split()
     for field in fields:
         log.debug("Config Field: [%s]", field)
 
@@ -95,7 +126,7 @@ def _parse_fields(config, line, fields):
 
 def get_parser():
     parser = argparse.ArgumentParser(description='Akamai {OPEN} API utility for signed API requests with cURL.',
-                                     epilog='Several arguments above as well as any unlisted arguments are passed on to curl. The <url> argument should always be the final argument.')
+                                     epilog='Several arguments above as well as any unlisted arguments are passed on to curl. The <url> argument should always be the final argument. The url hostname will automatically be replaced with the one specified by the selected configuration section.')
     parser.add_argument('-H', '--header',
                         action='append',
                         default = [],
@@ -150,7 +181,6 @@ def get_parser():
 def main():
     (args, args_unknown) = get_parser()
 
-    config = args.eg_config
     section = args.eg_section
     method = args.method
     data_ascii = args.data
@@ -169,61 +199,24 @@ def main():
                 sys.exit(1)
             if header_value:
                 header_value = header_value.strip()
-                if header_value:
-                    headers[header_name.lower()] = header_value
+            if header_value:
+                headers[header_name.lower()] = header_value
 
-    host = get_host(url, headers)
+    configs = _parse_egcurl(args.eg_config)
+    config = configs[section]
+    if not config:
+        raise ValueError("Config section was invalid or not found.")
 
-    with open(config, "r") as f:
-        current_section = None
-        config = {}
-        matched = False
-        for line in f.readlines():
-            if re.match("^\\s*($|#|;)", line): continue
-            m = re.match("^\\s*\\[(.+?)\\]\\s*$", line)
+    if 'host' in headers and headers['host'] != config['host']:
+        raise ValueError("Host header does not match config host")
 
-            if m:
-                current_section = m.group(1)
-                continue
-
-            config = {
-                "access_token": None,
-                "client_token": None,
-                "host": 0,
-                "max-body": None,
-                "secret": None,
-                "signed-header": []
-            }
-            fields = line.split()
-            _parse_fields(config, line, fields)
-            if config["max-body"]:
-                config["max-body"] = int(config["max-body"])
-
-            if 0 not in config.itervalues():
-                if current_section == section:
-                    p = host.find(config["host"])
-                    if p == 0:
-                        log.debug("Matched line for host %s", host)
-                        matched = True
-                        break
-                    pass
-                continue
-            raise ValueError("could not parse config line: " + line)
-
-    if not matched:
-        raise ValueError("could not find applicable config for host: " + host)
-
-    if not config['host']:
-        raise ValueError("cannot find matching host")
-    if not config['client_token']:
-        raise ValueError("client_token is not configured")
-    if not config['access_token']:
-        raise ValueError("access_token is not configured")
-    if not config['secret']:
-        raise ValueError("secret is not configured")
+    segments = urlparse.urlsplit(url)
+    if segments.netloc != config['host']:
+        log.warn("Requested hostname '%s' will be replaced by config host '%s'", segments.netloc, config['host'])
+        url = urlparse.urlunsplit(segments._replace(netloc = config['host']))
 
     # update the args with the signature
-    log.info("Authorization values: %s", pformat(config))
+    log.info("Authorization config: %s", pformat(config))
 
     auth = EdgeGridAuth(
         access_token=config['access_token'],
