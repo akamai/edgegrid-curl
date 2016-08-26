@@ -70,165 +70,167 @@ def get_host(url, headers):
 
 def _parse_fields(config, line, fields):
     for field in fields:
-      log.debug("Config Field: [%s]", field)
+        log.debug("Config Field: [%s]", field)
 
-      match = re.match("^([^:]+):(.+)$", field)
-      if not match:
-          log.error("Config line: [%s] has invalid field [%s].", line, field)
-          return
+        match = re.match("^([^:]+):(.+)$", field)
+        if not match:
+            log.error("Config line: [%s] has invalid field [%s].", line, field)
+            return
 
-      key = match.group(1)
-      value = match.group(2)
-      log.debug("Config Key: [%s] Value: [%s]", key, value)
+        key = match.group(1)
+        value = match.group(2)
+        log.debug("Config Key: [%s] Value: [%s]", key, value)
 
-      if key not in config.keys():
-          log.error("Config line: [%s] has nonexistent variable [%s].", line, key)
-          return
+        if key not in config.keys():
+            log.error("Config line: [%s] has nonexistent variable [%s].", line, key)
+            return
 
-      if type(config[key]) == list:
-          config[key].append(value)
-      elif not config[key]:
-          config[key] = value
-      else:
-          log.error("Config line: [%s] has duplicate variable [%s].", line, key)
-          break
+        if type(config[key]) == list:
+            config[key].append(value)
+        elif not config[key]:
+            config[key] = value
+        else:
+            log.error("Config line: [%s] has duplicate variable [%s].", line, key)
+            break
 
 def get_parser():
-  parser = argparse.ArgumentParser(description='Akamai {OPEN} API utility for signed API requests with cURL.',
-                                  epilog='Several arguments above as well as any unlisted arguments are passed on to curl. The <url> argument should always be the final argument.')
-  parser.add_argument('-H', '--header',
-                      action='append',
-                      default = [],
-                      help='HTTP headers to pass on to cURL (repeatable)')
-  parser.add_argument("--eg-config",
-                      default=os.environ["HOME"] + "/.egcurl",
-                      help='Location of configuration ini file.')
-  parser.add_argument("--eg-section",
-                      default = "default",
-                      help='Section of the config file for the desired OPEN API credentials.')
-  parser.add_argument('--eg-verbose',
-                      default=False,
-                      help='Enable verbose logging output',
-                      action='store_true')
-  group = parser.add_mutually_exclusive_group()
-  group.add_argument('-d', '--data', '--data-ascii',
-                      help='ASCII data content for POST body')
-  group.add_argument('--data-binary',
-                      help='binary data content for POST body')
-  parser.add_argument('-X', '--method',
-                      choices=['DELETE', 'GET', 'POST', 'PUT'],
-                      help='HTTP method for the request',
-                      default='GET')
-  parser.add_argument('url',
-                      help='Request URL')
-  (args, args_unknown) = parser.parse_known_args()
-  if args.eg_verbose:
-    log.setLevel(logging.DEBUG)
+    parser = argparse.ArgumentParser(description='Akamai {OPEN} API utility for signed API requests with cURL.',
+                                     epilog='Several arguments above as well as any unlisted arguments are passed on to curl. The <url> argument should always be the final argument.')
+    parser.add_argument('-H', '--header',
+                        action='append',
+                        default = [],
+                        help='HTTP headers to pass on to cURL (repeatable)')
+    parser.add_argument("--eg-config",
+                        default=os.environ["HOME"] + "/.egcurl",
+                        help='Location of configuration ini file.')
+    parser.add_argument("--eg-section",
+                        default = "default",
+                        help='Section of the config file for the desired OPEN API credentials.')
+    parser.add_argument('--eg-verbose',
+                        default=False,
+                        help='Enable verbose logging output',
+                        action='store_true')
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument('-d', '--data', '--data-ascii',
+                        help='ASCII data content for POST body')
+    group.add_argument('--data-binary',
+                        help='binary data content for POST body')
+    parser.add_argument('-X', '--method',
+                        choices=['DELETE', 'GET', 'POST', 'PUT'],
+                        help='HTTP method for the request',
+                        default='GET')
+    parser.add_argument('url',
+                        help='Request URL')
+    (args, args_unknown) = parser.parse_known_args()
+    if args.eg_verbose:
+        log.setLevel(logging.DEBUG)
 
-  log.info('Parsed known arguments: %s', pformat(args))
-  log.debug('Pass-through cURL arguments: %s', pformat(args_unknown))
+    log.info('Parsed known arguments: %s', pformat(args))
+    log.debug('Pass-through cURL arguments: %s', pformat(args_unknown))
 
-  disallowed_parser = argparse.ArgumentParser()
-  disallowed_parser.add_argument("-F")
-  disallowed_parser.add_argument("--form")
-  disallowed_parser.add_argument("--form-string")
-  disallowed_parser.add_argument("--data-urlencode")
-  disallowed_parser.add_argument("-G", "--get", default=None, action='store_true')
-  (args_bad, args_remainder)  = disallowed_parser.parse_known_args(args_unknown)
+    disallowed_parser = argparse.ArgumentParser()
+    disallowed_parser.add_argument("-F")
+    disallowed_parser.add_argument("--form")
+    disallowed_parser.add_argument("--form-string")
+    disallowed_parser.add_argument("--data-urlencode")
+    disallowed_parser.add_argument("-G", "--get", default=None, action='store_true')
+    (args_bad, args_remainder)  = disallowed_parser.parse_known_args(args_unknown)
 
-  unacceptable = []
-  for (key, val) in vars(args_bad).items():
-    if val != None:
-      unacceptable.append(key)
+    unacceptable = []
+    for (key, val) in vars(args_bad).items():
+        if val != None:
+            unacceptable.append(key)
 
-  if len(unacceptable) != 0:
-    log.debug('Disallowed cURL arguments: %s', pformat(args_bad))
-    parser.error("Unsupported cURL arguments found: " + ', '.join(unacceptable))
+    if len(unacceptable) != 0:
+        log.debug('Disallowed cURL arguments: %s', pformat(args_bad))
+        parser.error("Unsupported cURL arguments found: " + ', '.join(unacceptable))
 
-  return (args, args_unknown)
+    return (args, args_unknown)
 
 def main():
-  (args, args_unknown) = get_parser()
+    (args, args_unknown) = get_parser()
 
-  config = args.eg_config
-  section = args.eg_section
-  method = args.method
-  data_ascii = args.data
-  data_binary = args.data_binary
-  url = args.url
+    config = args.eg_config
+    section = args.eg_section
+    method = args.method
+    data_ascii = args.data
+    data_binary = args.data_binary
+    url = args.url
 
-  headers = {}
-  if args.header:
-    for header in args.header:
-      header_field = header.strip()
-      header_name, header_value = header_field.split(':')
-      if header_name:
-        header_name = header_name.strip()
-      if not header_name:
-        log.error("Invalid header value: %s", header_name)
-        sys.exit(1)
-      if header_value:
-        header_value = header_value.strip()
-        if header_value:
-          headers[header_name.lower()] = header_value
+    headers = {}
+    if args.header:
+        for header in args.header:
+            header_field = header.strip()
+            header_name, header_value = header_field.split(':')
+            if header_name:
+                header_name = header_name.strip()
+            if not header_name:
+                log.error("Invalid header value: %s", header_name)
+                sys.exit(1)
+            if header_value:
+                header_value = header_value.strip()
+                if header_value:
+                    headers[header_name.lower()] = header_value
 
-  host = get_host(url, headers)
+    host = get_host(url, headers)
 
-  with open(config, "r") as f:
-    current_section = None
-    config = {}
-    matched = False
-    for line in f.readlines():
-      if re.match("^\\s*($|#|;)", line): continue
-      m = re.match("^\\s*\\[(.+?)\\]\\s*$", line)
+    with open(config, "r") as f:
+        current_section = None
+        config = {}
+        matched = False
+        for line in f.readlines():
+            if re.match("^\\s*($|#|;)", line): continue
+            m = re.match("^\\s*\\[(.+?)\\]\\s*$", line)
 
-      if m:
-          current_section = m.group(1)
-          continue
+            if m:
+                current_section = m.group(1)
+                continue
 
-      config = { "host": 0,
-              "client_token": None,
-              "access_token": None,
-              "secret": None,
-              "max-body": None,
-              "signed-header": []}
-      fields = line.split()
-      _parse_fields(config, line, fields)
-      if config["max-body"]:
-        config["max-body"] = int(config["max-body"])
+            config = {
+                "access_token": None,
+                "client_token": None,
+                "host": 0,
+                "max-body": None,
+                "secret": None,
+                "signed-header": []
+            }
+            fields = line.split()
+            _parse_fields(config, line, fields)
+            if config["max-body"]:
+                config["max-body"] = int(config["max-body"])
 
-      if 0 not in config.itervalues():
-            if current_section == section:
-                p = host.find(config["host"])
-                if p == 0:
-                    log.debug("Matched line for host %s", host)
-                    matched = True
-                    break
-                pass
-            continue
-      raise ValueError("could not parse config line: " + line)
+            if 0 not in config.itervalues():
+                if current_section == section:
+                    p = host.find(config["host"])
+                    if p == 0:
+                        log.debug("Matched line for host %s", host)
+                        matched = True
+                        break
+                    pass
+                continue
+            raise ValueError("could not parse config line: " + line)
 
     if not matched:
-      raise ValueError("could not find applicable config for host: " + host)
+        raise ValueError("could not find applicable config for host: " + host)
 
     if not config['host']:
-      raise ValueError("cannot find matching host")
+        raise ValueError("cannot find matching host")
     if not config['client_token']:
-      raise ValueError("client_token is not configured")
+        raise ValueError("client_token is not configured")
     if not config['access_token']:
-      raise ValueError("access_token is not configured")
+        raise ValueError("access_token is not configured")
     if not config['secret']:
-      raise ValueError("secret is not configured")
+        raise ValueError("secret is not configured")
 
     # update the args with the signature
     log.info("Authorization values: %s", pformat(config))
 
     auth = EdgeGridAuth(
-      access_token=config['access_token'],
-      client_secret=config['secret'],
-      client_token=config['client_token'],
-      headers_to_sign=config['signed-header'],
-      max_body=config['max-body']
+        access_token=config['access_token'],
+        client_secret=config['secret'],
+        client_token=config['client_token'],
+        headers_to_sign=config['signed-header'],
+        max_body=config['max-body']
     )
 
     r = MockRequest(data_ascii, data_binary, headers, method, url)
@@ -238,11 +240,11 @@ def main():
 
     curl_args = ([ 'curl', '-X', method, '-H', 'Authorization:' + auth_header, '-H', 'Expect:' ])
     for header in args.header:
-      curl_args.extend([ '-H', header ])
+        curl_args.extend([ '-H', header ])
     if args.data:
-      curl_args.extend([ '--data', args.data ])
+        curl_args.extend([ '--data', args.data ])
     if args.data_binary:
-      curl_args.extend([ '--data-binary', args.data_binary ])
+        curl_args.extend([ '--data-binary', args.data_binary ])
     curl_args.extend(args_unknown + [ url ])
 
     log.info("cURL arguments: %s", pformat(curl_args))
