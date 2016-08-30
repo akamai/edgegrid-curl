@@ -246,7 +246,9 @@ def main():
     os.execvp(curl_args[0], curl_args)
 
 if __name__ == "__main__":
-    if not 'akamai' in sys.modules:
+    try:
+        from akamai.edgegrid import EdgeGridAuth
+    except ImportError:
         print("""
 This tool has been updated to use the Akamai EdgeGrid for Python library
 to sign requests. That library will need to be installed before you can
@@ -256,5 +258,5 @@ Please run this command to install the required library:
 
 pip install edgegrid-python""")
         sys.exit(1)
-    from akamai.edgegrid import EdgeGridAuth
+
     sys.exit(main())
