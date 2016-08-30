@@ -16,18 +16,12 @@
 #
 
 import argparse
-import hashlib
-import base64
-import hmac
+import urlparse
 import os
 import sys
 import logging
-import urllib
-import uuid
 import re
 from pprint import pformat
-from time import gmtime, strftime
-from urlparse import urlparse
 
 # data handling
 # only handles -d/--data/--data-ascii/--data-binary
@@ -38,301 +32,212 @@ from urlparse import urlparse
 logging.basicConfig()
 log = logging.getLogger(__name__)
 
-def get_host(url, headers):
-    return urlparse(url).netloc.split(":")[0].lower()
+class MockRequest:
+    def __init__(self, data_ascii, data_binary, headers, method, url):
+        self.body = self.get_data(data_ascii, data_binary)
+        log.info("body: %s", self.body)
+        self.headers= headers or {}
+        self.method = method
+        self.url = url
 
-def get_relative_url(url):
-    return urlparse(url).path or "/"
+    def get_data(self, data_ascii, data_binary):
+        data = ''
+        if data_ascii:
+            data = data_ascii
+        elif data_binary:
+            data = data_binary
+        # only hash POST for now
+        if data and data.startswith("@"):
+            data_file = data.lstrip("@")
+            try:
+                if not os.path.isfile(data_file):
+                    raise Exception('%s is not a file' %(data_file))
+                filesize = os.stat(data_file).st_size
+                # read the file content, and assign to data
+                with open(data_file, "r") as f:
+                    data = f.read()
+                    if data_ascii:
+                        data = ''.join(data.splitlines())
+                    return data
+            except IOError:
+                raise
 
-def sign(data, key, algorithm):
-    result = hmac.new(key, data, algorithm)
-    return result.digest()
+    def register_hook(self, ignoredA, ignoredB):
+        return
 
-class EGSigner(object):
-  def __init__(self, host, client_token, access_token, secret, max_body, signed_headers=None):
-    self.host = host
-    self.client_token = client_token
-    self.access_token = access_token
-    self.secret = secret
-    self.max_body = max_body
-    self.signed_headers = signed_headers
+def _parse_egcurl(file):
+    configs = {}
+    with open(file, "r") as f:
+        current_section = None
+        for line in f.readlines():
+            if re.match("^\\s*($|#|;)", line): continue
 
-  def get_auth_header(self, url, method, headers, data_ascii, data_binary):
-    result = self.get_auth_header_value(url, method, headers, data_ascii, data_binary)
-    auth_header = "Authorization: %s" % result
-    return auth_header
+            m = re.match("^\\s*\\[(.+?)\\]\\s*$", line)
+            if m:
+                current_section = m.group(1)
+                continue
 
-  def get_auth_header_value(self, url, method, headers, data_ascii, data_binary):
-    timestamp = strftime("%Y%m%dT%H:%M:%S+0000", gmtime())
- 
-    request_data = self.get_request_data(url, method, headers, data_ascii, data_binary)
-    auth_data = self.get_auth_data(timestamp)
-    request_data.append(auth_data)
-    string_to_sign = "\t".join(request_data)
-    log.debug("String-to-sign: %s", string_to_sign)
- 
-    key_bytes = sign(bytes(timestamp), bytes(self.secret), hashlib.sha256)
-    signing_key = base64.b64encode(key_bytes)
-    signature_bytes = sign(bytes(string_to_sign), bytes(signing_key), hashlib.sha256)
-    signature = base64.b64encode(signature_bytes)
-    auth_value = "%ssignature=%s" % (auth_data, signature)
-    return auth_value
- 
-  def get_auth_data(self, timestamp):
-    auth_fields = []
-    auth_fields.append('client_token=' + self.client_token)
-    auth_fields.append('access_token=' + self.access_token)
-    auth_fields.append('timestamp=' + timestamp)
-    auth_fields.append('nonce=' + str(uuid.uuid4()))
-    auth_fields.append('')
-    auth_data = ';'.join(auth_fields)
-    auth_data = 'EG1-HMAC-SHA256 ' + auth_data
-    log.info("Auth data: %s", auth_data)
-    return auth_data
+            config = {
+                "access_token": None,
+                "client_token": None,
+                "host": None,
+                "max-body": None,
+                "secret": None,
+                "signed-header": []
+            }
+            _parse_fields(config, line)
+            if config["max-body"]:
+                config["max-body"] = int(config["max-body"])
+            else:
+                config["max-body"] = 131072
 
+            if None in config.itervalues():
+                log.warn("Bad config line in section '%s': %s", current_section, line)
+            else:
+                configs[current_section] = config
 
-  def get_request_data(self, url, method, headers, data_ascii, data_binary):
-    request_data = []
-    if not method:
-      if data_ascii or data_binary:
-        method = "POST"
-      else:
-        method = "GET"
-    else:
-        method = method.upper()
-    request_data.append(method)
+    return configs
 
-    parsed_url = urlparse(url)
-    request_data.append(parsed_url.scheme)
-    request_data.append(self.host)
-    request_data.append(get_relative_url(url))
-    request_data.append(self.get_canonicalize_headers(headers))
-    request_data.append(self.get_content_hash(method, data_ascii, data_binary))
-    return request_data
-
-  def get_canonicalize_headers(self, headers):
-    canonical_header = ''
-    headers_values = []
-    log.info("Signed headers: %s", pformat(self.signed_headers))
-    for header_name in self.signed_headers:
-      header_value = ''
-      if header_name in headers:
-        header_value = headers[header_name]
-      if header_value:
-        header_value = header_value.strip()
-        p = re.compile('\\s+')
-        new_value = p.sub(' ', header_value)
-        canonical_header = header_name + ':' + new_value
-        headers_values.append(canonical_header)
-    headers_values.append('')
-    canonical_header = '\t'.join(headers_values)
-    log.info("Canonicalized header: %s", canonical_header)
-    return canonical_header
-
-  def get_content_hash(self, method, data_ascii, data_binary):
-    content_hash = ''
-    data = ''
-    if data_ascii:
-      data = data_ascii
-    elif data_binary:
-      data = data_binary
-
-    # only hash POST for now
-    if method == 'POST':
-      if data:
-        if data.startswith("@"):
-          data_file = data.lstrip("@")
-          try:
-            if not os.path.isfile(data_file):
-              raise Exception('%s is not a file' %(data_file))
-            filesize = os.stat(data_file).st_size
-            # read the file content, and assign to data
-            with open(data_file, "r") as f:
-              data = f.read()
-              if data_ascii:
-                data = ''.join(data.splitlines())
-          except IOError:
-            raise
-        
-        if len(data) > self.max_body:
-          log.info("Data length %s is larger than maximum %s", len(data), self.max_body)
-          data = data[0:self.max_body]
-          log.info("Data truncated to %s for computing the hash", len(data))
-
-        # compute the hash
-        md = hashlib.sha256(data).digest()
-        content_hash = base64.b64encode(md)
-    return content_hash
-
-def _parse_fields(config, line, fields):
+def _parse_fields(config, line):
+    fields = line.split()
     for field in fields:
-      log.debug("Config Field: [%s]", field)
+        log.debug("Config Field: [%s]", field)
 
-      match = re.match("^([^:]+):(.+)$", field)
-      if not match:
-          log.error("Config line: [%s] has invalid field [%s].", line, field)
-          return
+        match = re.match("^([^:]+):(.+)$", field)
+        if not match:
+            log.error("Config line: [%s] has invalid field [%s].", line, field)
+            return
 
-      key = match.group(1)
-      value = match.group(2)
-      log.debug("Config Key: [%s] Value: [%s]", key, value)
+        key = match.group(1)
+        value = match.group(2)
+        log.debug("Config Key: [%s] Value: [%s]", key, value)
 
-      if key not in config.keys():
-          log.error("Config line: [%s] has nonexistent variable [%s].", line, key)
-          return
+        if key not in config.keys():
+            log.error("Config line: [%s] has nonexistent variable [%s].", line, key)
+            return
 
-      if type(config[key]) == list:
-          config[key].append(value)
-      elif not config[key]:
-          config[key] = value
-      else:
-          log.error("Config line: [%s] has duplicate variable [%s].", line, key)
-          break
+        if type(config[key]) == list:
+            config[key].append(value)
+        elif not config[key]:
+            config[key] = value
+        else:
+            log.error("Config line: [%s] has duplicate variable [%s].", line, key)
+            break
+
 def get_parser():
-  parser = argparse.ArgumentParser(description='Akamai {OPEN} API utility for signed API requests with cURL.',
-                                  epilog='Several arguments above as well as any unlisted arguments are passed on to curl. The <url> argument should always be the final argument.')
-  parser.add_argument('-H', '--header',
-                      action='append',
-          default = [],
-                      help='HTTP headers to pass on to cURL (repeatable)')
-  parser.add_argument("--eg-config",
-                      default=os.environ["HOME"] + "/.egcurl",
-                      help='Location of configuration ini file.')
-  parser.add_argument("--eg-section",
-                      default = "default",
-                      help='Section of the config file for the desired OPEN API credentials.')
-  parser.add_argument('--eg-verbose',
-                      default=False,
-                      help='Enable verbose logging output',
-                      action='store_true')
-  group = parser.add_mutually_exclusive_group()
-  group.add_argument('-d', '--data', '--data-ascii',
-                      help='ASCII data content for POST body')
-  group.add_argument('--data-binary',
-                      help='binary data content for POST body')
-  parser.add_argument('-X', '--method',
-                      choices=['DELETE', 'GET', 'POST', 'PUT'],
-                      help='HTTP method for the request',
-                      default='GET')
-  parser.add_argument('url',
-                      help='Request URL')
-  (args, args_unknown) = parser.parse_known_args()
-  if args.eg_verbose:
-    log.setLevel(logging.INFO)
+    parser = argparse.ArgumentParser(description='Akamai {OPEN} API utility for signed API requests with cURL.',
+                                     epilog='Several arguments above as well as any unlisted arguments are passed on to curl. The <url> argument should always be the final argument. The url hostname will automatically be replaced with the one specified by the selected configuration section.')
+    parser.add_argument('-H', '--header',
+                        action='append',
+                        default = [],
+                        help='HTTP headers to pass on to cURL (repeatable)')
+    parser.add_argument("--eg-config",
+                        default=os.environ["HOME"] + "/.egcurl",
+                        help='Location of configuration ini file.')
+    parser.add_argument("--eg-section",
+                        default = "default",
+                        help='Section of the config file for the desired OPEN API credentials.')
+    parser.add_argument('--eg-verbose',
+                        default=False,
+                        help='Enable verbose logging output',
+                        action='store_true')
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument('-d', '--data', '--data-ascii',
+                        help='ASCII data content for POST body')
+    group.add_argument('--data-binary',
+                        help='binary data content for POST body')
+    parser.add_argument('-X', '--method',
+                        choices=['DELETE', 'GET', 'POST', 'PUT'],
+                        help='HTTP method for the request',
+                        default='GET')
+    parser.add_argument('url',
+                        help='Request URL')
+    (args, args_unknown) = parser.parse_known_args()
+    if args.eg_verbose:
+        log.setLevel(logging.DEBUG)
 
-  log.info('Parsed known arguments: %s', pformat(args))
-  log.debug('Pass-through cURL arguments: %s', pformat(args_unknown))
+    log.info('Parsed known arguments: %s', pformat(args))
+    log.debug('Pass-through cURL arguments: %s', pformat(args_unknown))
 
-  disallowed_parser = argparse.ArgumentParser()
-  disallowed_parser.add_argument("-F")
-  disallowed_parser.add_argument("--form")
-  disallowed_parser.add_argument("--form-string")
-  disallowed_parser.add_argument("--data-urlencode")
-  disallowed_parser.add_argument("-G", "--get", default=None, action='store_true')
-  (args_bad, args_remainder)  = disallowed_parser.parse_known_args(args_unknown)
+    disallowed_parser = argparse.ArgumentParser()
+    disallowed_parser.add_argument("-F")
+    disallowed_parser.add_argument("--form")
+    disallowed_parser.add_argument("--form-string")
+    disallowed_parser.add_argument("--data-urlencode")
+    disallowed_parser.add_argument("-G", "--get", default=None, action='store_true')
+    (args_bad, args_remainder)  = disallowed_parser.parse_known_args(args_unknown)
 
-  unacceptable = []
-  for (key, val) in vars(args_bad).items():
-    if val != None:
-      unacceptable.append(key)
+    unacceptable = []
+    for (key, val) in vars(args_bad).items():
+        if val != None:
+            unacceptable.append(key)
 
-  if len(unacceptable) != 0:
-    log.debug('Disallowed cURL arguments: %s', pformat(args_bad))
-    parser.error("Unsupported cURL arguments found: " + ', '.join(unacceptable))
+    if len(unacceptable) != 0:
+        log.debug('Disallowed cURL arguments: %s', pformat(args_bad))
+        parser.error("Unsupported cURL arguments found: " + ', '.join(unacceptable))
 
-  return (args, args_unknown)
-  
+    return (args, args_unknown)
+
 def main():
-  (args, args_unknown) = get_parser()
+    (args, args_unknown) = get_parser()
 
-  config = args.eg_config
-  section = args.eg_section
-  method = args.method
-  data_ascii = args.data
-  data_binary = args.data_binary
-  url = args.url
+    section = args.eg_section
+    method = args.method
+    data_ascii = args.data
+    data_binary = args.data_binary
+    url = args.url
 
-  headers = {}
-  if args.header:
-    for header in args.header:
-      header_field = header.strip()
-      header_name, header_value = header_field.split(':')
-      if header_name:
-        header_name = header_name.strip()
-      if not header_name:
-        log.error("Invalid header value: %s", header_name)
-        sys.exit(1)
-      if header_value:
-        header_value = header_value.strip()
-        if header_value:
-          headers[header_name.lower()] = header_value
+    headers = {}
+    if args.header:
+        for header in args.header:
+            header_field = header.strip()
+            header_name, header_value = header_field.split(':')
+            if header_name:
+                header_name = header_name.strip()
+            if not header_name:
+                log.error("Invalid header value: %s", header_name)
+                sys.exit(1)
+            if header_value:
+                header_value = header_value.strip()
+            if header_value:
+                headers[header_name.lower()] = header_value
 
-  host = get_host(url, headers)
+    configs = _parse_egcurl(args.eg_config)
+    config = configs[section]
+    if not config:
+        raise ValueError("Config section was invalid or not found.")
 
-  with open(config, "r") as f:
-    current_section = None
-    config = {}
-    matched = False
-    for line in f.readlines():
-      if re.match("^\\s*($|#|;)", line): continue
-      m = re.match("^\\s*\\[(.+?)\\]\\s*$", line)
+    if 'host' in headers and headers['host'] != config['host']:
+        raise ValueError("Host header does not match config host")
 
-      if m:
-          current_section = m.group(1)
-          continue
-
-      config = { "host": 0,
-              "client_token": None,
-              "access_token": None,
-              "secret": None,
-              "max-body": None,
-              "signed-header": []}
-      fields = line.split()
-      _parse_fields(config, line, fields)
-      if config["max-body"]:
-        config["max-body"] = int(config["max-body"])
-
-      if 0 not in config.itervalues():
-            if current_section == section:
-                p = host.find(config["host"])
-                if p == 0:
-                    log.debug("Matched line for host %s", host)
-                    matched = True
-                    break
-                pass
-            continue
-      raise ValueError("could not parse config line: " + line)
-
-    if not matched:
-      raise ValueError("could not find applicable config for host: " + host)
-
-    if not config['host']:
-      raise ValueError("cannot find matching host")
-    if not config['client_token']:
-      raise ValueError("client_token is not configured")
-    if not config['access_token']:
-      raise ValueError("access_token is not configured")
-    if not config['secret']:
-      raise ValueError("secret is not configured")
+    segments = urlparse.urlsplit(url)
+    if segments.netloc != config['host']:
+        log.warn("Requested hostname '%s' will be replaced by config host '%s'", segments.netloc, config['host'])
+        url = urlparse.urlunsplit(segments._replace(netloc = config['host']))
 
     # update the args with the signature
-    log.info("Authorization values: %s", pformat(config))
-    signer = EGSigner(host,
-                      config['client_token'],
-                      config['access_token'],
-                      config['secret'],
-                      config['max-body'],
-                      config['signed-header'])
+    log.info("Authorization config: %s", pformat(config))
 
-    auth_header = signer.get_auth_header(url, method, headers, data_ascii, data_binary)
+    auth = EdgeGridAuth(
+        access_token=config['access_token'],
+        client_secret=config['secret'],
+        client_token=config['client_token'],
+        headers_to_sign=config['signed-header'],
+        max_body=config['max-body']
+    )
 
-    curl_args = ([ 'curl', '-X', method, '-H', auth_header, '-H', 'Expect:' ])
+    r = MockRequest(data_ascii, data_binary, headers, method, url)
+    auth(r)
+    auth_header = r.headers['Authorization']
+    log.info("Authorization header: %s", auth_header)
+
+    curl_args = ([ 'curl', '-X', method, '-H', 'Authorization:' + auth_header, '-H', 'Expect:' ])
     for header in args.header:
-      curl_args.extend([ '-H', header ])
+        curl_args.extend([ '-H', header ])
     if args.data:
-      curl_args.extend([ '--data', args.data ])
+        curl_args.extend([ '--data', args.data ])
     if args.data_binary:
-      curl_args.extend([ '--data-binary', args.data_binary ])
+        curl_args.extend([ '--data-binary', args.data_binary ])
     curl_args.extend(args_unknown + [ url ])
 
     log.info("cURL arguments: %s", pformat(curl_args))
@@ -341,4 +246,15 @@ def main():
     os.execvp(curl_args[0], curl_args)
 
 if __name__ == "__main__":
+    if not 'akamai' in sys.modules:
+        print("""
+This tool has been updated to use the Akamai EdgeGrid for Python library
+to sign requests. That library will need to be installed before you can
+make a request.
+
+Please run this command to install the required library:
+
+pip install edgegrid-python""")
+        sys.exit(1)
+    from akamai.edgegrid import EdgeGridAuth
     sys.exit(main())
