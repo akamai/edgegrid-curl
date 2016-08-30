@@ -15,10 +15,16 @@
 # limitations under the License.
 #
 
-import argparse
-import urlparse
-import os
 import sys
+if sys.version_info[0] >= 3:
+     # python3
+     from urllib import parse
+else:
+     # python2.7
+     import urlparse as parse
+
+import argparse
+import os
 import logging
 import re
 from pprint import pformat
@@ -210,10 +216,10 @@ def main():
     if 'host' in headers and headers['host'] != config['host']:
         raise ValueError("Host header does not match config host")
 
-    segments = urlparse.urlsplit(url)
+    segments = parse.urlsplit(url)
     if segments.netloc != config['host']:
         log.warn("Requested hostname '%s' will be replaced by config host '%s'", segments.netloc, config['host'])
-        url = urlparse.urlunsplit(segments._replace(netloc = config['host']))
+        url = parse.urlunsplit(segments._replace(netloc = config['host']))
 
     # update the args with the signature
     log.info("Authorization config: %s", pformat(config))
