@@ -2,7 +2,7 @@
 
 Python-based command wrapper for cURL to sign requests for Akamai OPEN APIs.
 
-egcurl is a simple wrapper around cURL to help with calling Akamai OPEN APIs. The script examines a subset of curl command arguments in order to produce a request signature, then uses curl to make the API call with all the original arguments plus the computed request signature.
+egcurl is a simple wrapper around cURL to help with calls to Akamai OPEN APIs. The script intercepts a subset of curl command arguments in order to produce a request signature, then uses curl to make the API call with all the original arguments plus the computed request signature.
 
 Note that there is now a simpler command line utility, httpie, which doesn't depend on you already knowing how to use cURL. It is available [here](https://github.com/akamai-open/httpie-edgegrid) or by calling
 
@@ -13,6 +13,9 @@ pip install httpie-edgegrid
 The examples and guides on the developer portal are moving to this new tool, so please consider using it for your API calls.
 
 ## CHANGES
+2016-08-31
+* Add support for EdgeRc configuration files.
+
 2016-08-25
 * Use EdgeGridAuth to sign requests.
 * Automatically use hostname specified by configuration section.
@@ -30,42 +33,55 @@ The examples and guides on the developer portal are moving to this new tool, so 
 1. Install python 2.7 or newer. If you are running GNU/Linux or Mac OS X, you probably already have it.
 2. Install curl. The script expects to find it in your path.
 3. Install edgegrid-python. This is used to sign requests. (`pip install edgegrid-python`)
+4. Clone this repository and then you can execute egcurl directly from the repository clone.
 
 
 ## CONFIGURATION
 
-The parameters and credentials for signing the requests are configured with a configuration file, by default .egcurl in your home directory. The command line can also specify the configuration file to use.
-
-The configuration is divided into sections with names in brackets. By default, egcurl looks up configurations in the section name "default", but the command line can override that.
-
-Lines starting with "`#`" are comments and ignored.
-
-Within each section, the entries are checked until the first match is found. If no match is found, an error is returned.
-
-The only currently supported match is based on the host, for example,
+The EdgeGrid plugin relies on an `~/.edgerc` credentials file that needs to be created in your home directory and organized by [section] following the format below. Each [section] can contain a different credentials set allowing you to store all of your credentials in a single `~/.edgerc` file.
 
 ```
-host:akaa-51eeae4527df90cd-c2200ed3b0d10909.luna-dev.akamaiapis.net
+    [default]
+    client_secret = xxxx
+    host = xxxx # Note, don't include the https:// here
+    access_token = xxxx
+    client_token = xxxx
+    max-body = xxxx
+
+    [section1]
+    client_secret = xxxx
+    host = xxxx # Note, don't include the https:// here
+    access_token = xxxx
+    client_token = xxxx
+    max-body = xxxx
 ```
 
-The signing parameters are specified as name:value pairs on the same line following the host value, separated with a space. The supported parameters are:
+Once you have the credentials set up you can use egcurl as well as other Akamai OPEN tools.
 
-* client_token: for specifying the client token obtained from the client provisioning process
-* access_token: for specifying the access token obtained from the client authorization process
-* secret: for specifying the client secret that is associated with the client token
-* max-body: for specifying the maximum allowed size in bytes of the request body, for POST and PUT requests. This value is provided by the API service provider.
-* signed-header: for specifying the ordered list of request headers to be included in the request signature. This is also provided by the API service provider. This parameter is optional if no header is needed in the signature.
+Use the `--eg-section` argument to specify which section from the configuration file contains the desired credentials for your API request.
+
+
+## OLDER `~/.egcurl` CONFIGURATION
+
+egcurl supports an older non-standard configuration file, specified by `--eg-config`. If this argument is used (or if `~/.egcurl` exists), this configuration file will be consulted first to retrieve your client configuration. If the file does not exist or the section is not found, egcurl will look for the client configuration in your `~/.edgerc` automatically.
+
+The older `~/.egcurl` configuration is deprecated. Support for this file and format will be removed on or shortly after 2017-05-01. You can easily convert an olrder `~/.egcurl` configuration to an `~/.edgerc` with the `convert_egcurl.pl` script. For example:
+
+```
+$ ./convert_egcurl.pl < ~/.egcurl > ~/.edgerc
+$ mv ~/.egcurl ~/.egcurl-backup
+```
 
 
 ## COMMAND LINE
 
 egcurl is a wrapper around the traditional curl command, so nearly all arguments for curl are supported.
 
-There are three optional arguments available:
+There are three optional non-standard arguments available:
 
-* `--eg-config FILE`: Use `FILE` instead of `~/.egcurl` to read the configuration.
+* `--eg-edgerc FILE`: Use `FILE` instead of `~/.edgerc` to read the configuration.
 * `--eg-section SECTION`: Use section `SECTION` instead of section "default" in the configuration.
-* `--eg-verbose`: Print which line from the configuration matched the request, the actual arguments to be sent to curl, and perhaps other debugging information.
+* `--eg-verbose`: Increase logging verbosity. Can be repeated to further increase verbosity.
 
 These arguments are not supported:
 
@@ -75,9 +91,9 @@ These arguments are not supported:
 
 There are several restrictions on specifying the request data for POST and PUT requests (currently only POST requests).
 
-1. Only supports "`-d`", "`--data`" and "`--data-ascii`" for ascii data and "`--data-binary`" for binary data.
+1. Only supports `-d`, `--data` and `--data-ascii` for ascii data and `--data-binary` for binary data.
 2. Only one data option can be used on the same command line.
-3. If the data starts with the letter "`@`", the rest is treated as the name of the file to read the data from. Only one file can be specified on the same command line.
+3. If the data starts with the `@` character, the rest is treated as the name of the file to read the data from. Only one file can be specified on the same command line.
 
 The hostname segment of the url will be automatically replaced with the hostname indicated by the selected configuration section.
 
@@ -85,12 +101,12 @@ The hostname segment of the url will be automatically replaced with the hostname
 
 ```
 $ ./egcurl --help
-usage: egcurl [-h] [-H HEADER] [--eg-config EG_CONFIG]
+usage: egcurl [-h] [-H HEADER] [--eg-edgerc EG_EDGERC | --eg-config EG_CONFIG]
               [--eg-section EG_SECTION] [--eg-verbose]
               [-d DATA | --data-binary DATA_BINARY] [-X {DELETE,GET,POST,PUT}]
               url
 
-Akamai OPEN API utility for signed API requests with cURL.
+Akamai {OPEN} API utility for signed API requests with cURL.
 
 positional arguments:
   url                   Request URL
@@ -99,8 +115,10 @@ optional arguments:
   -h, --help            show this help message and exit
   -H HEADER, --header HEADER
                         HTTP headers to pass on to cURL (repeatable)
+  --eg-edgerc EG_EDGERC
+                        Location of EdgeRc configuration ini file.
   --eg-config EG_CONFIG
-                        Location of configuration ini file.
+                        Location of older configuration file (DEPRECATED).
   --eg-section EG_SECTION
                         Section of the config file for the desired OPEN API
                         credentials.
@@ -120,11 +138,15 @@ configuration section.
 
 ## EXAMPLE
 
-Here is an example configuration:
+Here is an example `~/.edgerc` configuration:
 
 ```
 [default]
-host:akaa-u5x3btzf44hplb4q-6jrzwnvo7llch3po.luna.akamaiapis.net client_token:akaa-nev5k66unzize2gx-5uz4svbszp4ko5wq access_token:akaa-ublu6mqdcqkjw5lz-542a56pcogddddow secret:SOMESECRET max-body:2048
+access_token = akaa-ublu6mqdcqkjw5lz-542a56pcogddddow
+client_secret = SOMESECRET
+client_token = akaa-nev5k66unzize2gx-5uz4svbszp4ko5wq
+host = akaa-u5x3btzf44hplb4q-6jrzwnvo7llch3po.luna.akamaiapis.net
+max-body = 2048
 ```
 
 Here is an example invocation:
