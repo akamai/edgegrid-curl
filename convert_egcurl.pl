@@ -10,10 +10,10 @@ while (<STDIN>) {
     }
     chomp($_);
     $_ =~ s/secret/client_secret/go;
-    $_ =~ s/:/ = /go;
     my @options = split(/ +/, $_);
     @options = sort(@options);
     foreach my $thing (@options) {
+        $thing =~ s/:/ = /go;
         print($thing . "\n");
     }
 }
