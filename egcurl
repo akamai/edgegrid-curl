@@ -71,6 +71,36 @@ class MockRequest:
     def register_hook(self, ignoredA, ignoredB):
         return
 
+def get_config(edgerc_filename, egconf_filename, section):
+    if os.path.isfile(egconf_filename):
+        configs = _parse_egcurl(egconf_filename)
+        if section in configs:
+            logging.warn("Using configuraton from deprecated egconfig file '%s'. Please migrate to ~/.edgerc.", egconf_filename)
+            config = configs[section]
+            return config
+
+    config = _parse_edgerc(edgerc_filename, section)
+    return config
+
+def _parse_edgerc(file, section):
+    if not os.path.isfile(file):
+        return None
+    edgerc = EdgeRc(file)
+    config = {
+        "access_token": edgerc.get(section, 'access_token'),
+        "client_token": edgerc.get(section, 'client_token'),
+        "host": edgerc.get(section, 'host'),
+        "max-body": edgerc.getint(section, 'max-body'),
+        "secret": edgerc.get(section, 'client_secret'),
+        "signed-header": edgerc.get(section, 'headers_to_sign')
+    }
+
+    # The EdgeRc library ensures the whole file must be valid. If host is empty then there's no config found.
+    if config['host'] is None:
+        return None
+
+    return config
+
 def _parse_egcurl(file):
     configs = {}
     with open(file, "r") as f:
@@ -137,9 +167,13 @@ def get_parser():
                         action='append',
                         default = [],
                         help='HTTP headers to pass on to cURL (repeatable)')
-    parser.add_argument("--eg-config",
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("--eg-edgerc",
+                        default=os.environ["HOME"] + "/.edgerc",
+                        help='Location of EdgeRc configuration ini file.')
+    group.add_argument("--eg-config",
                         default=os.environ["HOME"] + "/.egcurl",
-                        help='Location of configuration ini file.')
+                        help='Location of older configuration file (DEPRECATED).')
     parser.add_argument("--eg-section",
                         default = "default",
                         help='Section of the config file for the desired OPEN API credentials.')
@@ -208,8 +242,8 @@ def main():
             if header_value:
                 headers[header_name.lower()] = header_value
 
-    configs = _parse_egcurl(args.eg_config)
-    config = configs[section]
+    config = get_config(args.eg_edgerc, args.eg_config, section)
+
     if not config:
         raise ValueError("Config section was invalid or not found.")
 
@@ -254,6 +288,7 @@ def main():
 if __name__ == "__main__":
     try:
         from akamai.edgegrid import EdgeGridAuth
+        from akamai.edgegrid import EdgeRc
     except ImportError:
         print("""
 This tool has been updated to use the Akamai EdgeGrid for Python library
