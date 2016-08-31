@@ -104,7 +104,7 @@ optional arguments:
   --eg-section EG_SECTION
                         Section of the config file for the desired OPEN API
                         credentials.
-  --eg-verbose          Enable verbose logging output
+  --eg-verbose          Enable verbose logging output (repeat for even more)
   -d DATA, --data DATA, --data-ascii DATA
                         ASCII data content for POST body
   --data-binary DATA_BINARY

@@ -179,8 +179,8 @@ def get_parser():
                         help='Section of the config file for the desired OPEN API credentials.')
     parser.add_argument('--eg-verbose',
                         default=False,
-                        help='Enable verbose logging output',
-                        action='store_true')
+                        help='Enable verbose logging output (repeat for even more)',
+                        action='count')
     group = parser.add_mutually_exclusive_group()
     group.add_argument('-d', '--data', '--data-ascii',
                         help='ASCII data content for POST body')
@@ -193,7 +193,9 @@ def get_parser():
     parser.add_argument('url',
                         help='Request URL')
     (args, args_unknown) = parser.parse_known_args()
-    if args.eg_verbose:
+    if args.eg_verbose == 1:
+        log.setLevel(logging.INFO)
+    elif args.eg_verbose >= 2:
         log.setLevel(logging.DEBUG)
 
     log.info('Parsed known arguments: %s', pformat(args))
@@ -280,7 +282,7 @@ def main():
         curl_args.extend([ '--data-binary', args.data_binary ])
     curl_args.extend(args_unknown + [ url ])
 
-    log.info("cURL arguments: %s", pformat(curl_args))
+    log.info("cURL command: %s", " ".join(curl_args))
     sys.stdout.flush()
 
     os.execvp(curl_args[0], curl_args)
