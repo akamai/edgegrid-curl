@@ -73,14 +73,14 @@ class MockRequest:
         return
 
 def get_config(edgerc_filename, egconf_filename, section):
-    if os.path.isfile(egconf_filename):
+    if os.path.isfile(os.path.expanduser(egconf_filename)):
         configs = _parse_egcurl(egconf_filename)
         if section in configs:
             logging.warn("Using configuraton from deprecated egconfig file '%s'. Please migrate to ~/.edgerc.", egconf_filename)
             config = configs[section]
             return config
 
-    config = _parse_edgerc(edgerc_filename, section)
+    config = _parse_edgerc(os.path.expanduser(edgerc_filename), section)
     return config
 
 def _parse_edgerc(file, section):
@@ -170,10 +170,10 @@ def get_parser():
                         help='HTTP headers to pass on to cURL (repeatable)')
     group = parser.add_mutually_exclusive_group()
     group.add_argument("--eg-edgerc",
-                        default=os.environ["HOME"] + "/.edgerc",
+                        default=os.path.expanduser("~/.edgerc"),
                         help='Location of EdgeRc configuration ini file.')
     group.add_argument("--eg-config",
-                        default=os.environ["HOME"] + "/.egcurl",
+                        default=os.path.expanduser("~/.egcurl"),
                         help='Location of older configuration file (DEPRECATED).')
     parser.add_argument("--eg-section",
                         default = "default",
