@@ -67,6 +67,7 @@ class MockRequest:
                     return data
             except IOError:
                 raise
+        return data
 
     def register_hook(self, ignoredA, ignoredB):
         return
