@@ -13,7 +13,7 @@ pip install httpie-edgegrid
 The examples and guides on the developer portal are moving to this new tool, so please consider using it for your API calls.
 
 ## CHANGES
-2016-08-31
+2016-11-07
 * Add support for EdgeRc configuration files.
 
 2016-08-25
@@ -146,7 +146,7 @@ access_token = akaa-ublu6mqdcqkjw5lz-542a56pcogddddow
 client_secret = SOMESECRET
 client_token = akaa-nev5k66unzize2gx-5uz4svbszp4ko5wq
 host = akaa-u5x3btzf44hplb4q-6jrzwnvo7llch3po.luna.akamaiapis.net
-max-body = 2048
+max-body = 131072
 ```
 
 Here is an example invocation:
