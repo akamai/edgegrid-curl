@@ -24,9 +24,11 @@ else:
      import urlparse as parse
 
 import argparse
-import os
+import json
 import logging
+import os
 import re
+import subprocess
 from pprint import pformat
 
 # data handling
@@ -182,6 +184,10 @@ def get_parser():
                         default=False,
                         help='Enable verbose logging output (repeat for even more)',
                         action='count')
+    group.add_argument("--eg-json",
+                       default=False,
+                       help='Automatically apply JSON pretty-format to the response.',
+                       action='store_true')
     group = parser.add_mutually_exclusive_group()
     group.add_argument('-d', '--data', '--data-ascii',
                         help='ASCII data content for POST body')
@@ -286,7 +292,20 @@ def main():
     log.info("cURL command: %s", " ".join(curl_args))
     sys.stdout.flush()
 
-    os.execvp(curl_args[0], curl_args)
+    stdoutType = None
+    if args.eg_json:
+        stdoutType = subprocess.PIPE
+    proc = subprocess.Popen(args = curl_args,
+                            stderr = None,
+                            stdout = stdoutType,
+                            universal_newlines = True)
+
+    if args.eg_json:
+        json_data = json.load(proc.stdout)
+        print json.dumps(json_data, sort_keys=True, indent=4, separators=(',', ': '))
+
+    proc.wait()
+    return proc.returncode
 
 if __name__ == "__main__":
     try:

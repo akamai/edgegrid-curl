@@ -80,6 +80,7 @@ egcurl is a wrapper around the traditional curl command, so nearly all arguments
 There are three optional non-standard arguments available:
 
 * `--eg-edgerc FILE`: Use `FILE` instead of `~/.edgerc` to read the configuration.
+* `--eg-json`: Automatically apply JSON pretty-format to the response.
 * `--eg-section SECTION`: Use section `SECTION` instead of section "default" in the configuration.
 * `--eg-verbose`: Increase logging verbosity. Can be repeated to further increase verbosity.
 
@@ -123,6 +124,8 @@ optional arguments:
                         Section of the config file for the desired OPEN API
                         credentials.
   --eg-verbose          Enable verbose logging output (repeat for even more)
+  --eg-json             Automatically apply JSON pretty-format to the
+                        response.
   -d DATA, --data DATA, --data-ascii DATA
                         ASCII data content for POST body
   --data-binary DATA_BINARY
