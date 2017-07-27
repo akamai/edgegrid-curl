@@ -13,6 +13,9 @@ pip install httpie-edgegrid
 The examples and guides on the developer portal are moving to this new tool, so please consider using it for your API calls.
 
 ## CHANGES
+2017-07-27
+* Add --eg-json argument to pretty-format JSON responses.
+
 2016-11-07
 * Add support for EdgeRc configuration files.
 
