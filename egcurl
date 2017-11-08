@@ -302,7 +302,7 @@ def main():
 
     if args.eg_json:
         json_data = json.load(proc.stdout)
-        print json.dumps(json_data, sort_keys=True, indent=4, separators=(',', ': '))
+        print(json.dumps(json_data, sort_keys=True, indent=4, separators=(',', ': ')))
 
     proc.wait()
     return proc.returncode
