@@ -301,8 +301,16 @@ def main():
                             universal_newlines = True)
 
     if args.eg_json:
-        json_data = json.load(proc.stdout)
-        print(json.dumps(json_data, sort_keys=True, indent=4, separators=(',', ': ')))
+        json_stdout = proc.stdout.read()
+        try:
+            json_data = json.loads(json_stdout)
+            print(json.dumps(json_data, sort_keys=True, indent=4, separators=(',', ': ')))
+        except ValueError:
+            if len(json_stdout) == 0:
+                log.warn("Response was actually empty, not JSON.")
+            else:
+                log.error("Exception parsing JSON response! Raw value will be printed to STDOUT.")
+                print(json_stdout)
 
     proc.wait()
     return proc.returncode
