@@ -106,7 +106,7 @@ The hostname segment of the url will be automatically replaced with the hostname
 ```
 $ ./egcurl --help
 usage: egcurl [-h] [-H HEADER] [--eg-edgerc EG_EDGERC | --eg-config EG_CONFIG]
-              [--eg-section EG_SECTION] [--eg-verbose]
+              [--eg-json] [--eg-section EG_SECTION] [--eg-verbose]
               [-d DATA | --data-binary DATA_BINARY] [-X {DELETE,GET,POST,PUT}]
               url
 
@@ -123,12 +123,12 @@ optional arguments:
                         Location of EdgeRc configuration ini file.
   --eg-config EG_CONFIG
                         Location of older configuration file (DEPRECATED).
+  --eg-json             Automatically apply JSON pretty-format to the
+                        response.
   --eg-section EG_SECTION
                         Section of the config file for the desired OPEN API
                         credentials.
   --eg-verbose          Enable verbose logging output (repeat for even more)
-  --eg-json             Automatically apply JSON pretty-format to the
-                        response.
   -d DATA, --data DATA, --data-ascii DATA
                         ASCII data content for POST body
   --data-binary DATA_BINARY

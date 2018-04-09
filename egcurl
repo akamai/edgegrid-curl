@@ -177,6 +177,10 @@ def get_parser():
     group.add_argument("--eg-config",
                         default=os.path.expanduser("~/.egcurl"),
                         help='Location of older configuration file (DEPRECATED).')
+    parser.add_argument("--eg-json",
+                       default=False,
+                       help='Automatically apply JSON pretty-format to the response.',
+                       action='store_true')
     parser.add_argument("--eg-section",
                         default = "default",
                         help='Section of the config file for the desired OPEN API credentials.')
@@ -184,10 +188,6 @@ def get_parser():
                         default=False,
                         help='Enable verbose logging output (repeat for even more)',
                         action='count')
-    group.add_argument("--eg-json",
-                       default=False,
-                       help='Automatically apply JSON pretty-format to the response.',
-                       action='store_true')
     group = parser.add_mutually_exclusive_group()
     group.add_argument('-d', '--data', '--data-ascii',
                         help='ASCII data content for POST body')
