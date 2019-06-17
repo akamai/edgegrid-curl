@@ -161,7 +161,7 @@ Here is an example invocation:
 egcurl -sSik 'https://luna.akamaiapis.net/billing-usage/v1/reportSources'
 ```
 
-## Bugs
+## BUGS
 
 This tool indirectly uses pyOpenSSL for Python < 3 via
 [EdgeGrid for Python](https://github.com/akamai/AkamaiOPEN-edgegrid-python/),
