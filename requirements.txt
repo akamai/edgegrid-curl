@@ -1,0 +1,2 @@
+edgegrid-python
+pyOpenSSL>=17.0.0

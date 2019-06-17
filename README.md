@@ -160,3 +160,22 @@ Here is an example invocation:
 ```
 egcurl -sSik 'https://luna.akamaiapis.net/billing-usage/v1/reportSources'
 ```
+
+## Bugs
+
+This tool indirectly uses pyOpenSSL for Python < 3 via
+[EdgeGrid for Python](https://github.com/akamai/AkamaiOPEN-edgegrid-python/),
+which is used to produce request signatures. macOS includes a very old
+version of it (0.13.1) by default, which is incompatible with EdgeGrid for
+Python. If you are using macOS and are incorrectly receiving an instruction
+to run `pip install edgegrid-python`, the the issue is likely that your
+pyOpenSSL dependency is too old and needs to be upgraded.
+
+Run this command to fix the problem:
+```
+pip install -U pyOpenSSL
+```
+
+_NOTE: DO NOT RUN THIS COMMAND AS ROOT._ It is not possible to upgrade
+the system installation of pyOpenSSL on macOS. Attempting to upgrade it
+will fail with inexplicable errors.
