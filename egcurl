@@ -78,7 +78,7 @@ def get_config(edgerc_filename, egconf_filename, section):
     if os.path.isfile(os.path.expanduser(egconf_filename)):
         configs = _parse_egcurl(egconf_filename)
         if section in configs:
-            logging.warn("Using configuraton from deprecated egconfig file '%s'. Please migrate to ~/.edgerc.", egconf_filename)
+            logging.warning("Using configuraton from deprecated egconfig file '%s'. Please migrate to ~/.edgerc.", egconf_filename)
             config = configs[section]
             return config
 
@@ -131,7 +131,7 @@ def _parse_egcurl(file):
                 config["max-body"] = 131072
 
             if None in config.values():
-                log.warn("Bad config line in section '%s': %s", current_section, line)
+                log.warning("Bad config line in section '%s': %s", current_section, line)
             else:
                 configs[current_section] = config
 
@@ -264,7 +264,7 @@ def main():
 
     segments = parse.urlsplit(url)
     if segments.netloc != config['host']:
-        log.warn("Requested hostname '%s' will be replaced by config host '%s'", segments.netloc, config['host'])
+        log.warning("Requested hostname '%s' will be replaced by config host '%s'", segments.netloc, config['host'])
         url = parse.urlunsplit(segments._replace(netloc = config['host']))
 
     # update the args with the signature
@@ -310,7 +310,7 @@ def main():
             print(json.dumps(json_data, sort_keys=True, indent=4, separators=(',', ': ')))
         except ValueError:
             if len(json_stdout) == 0:
-                log.warn("Response was actually empty, not JSON.")
+                log.warning("Response was actually empty, not JSON.")
             else:
                 log.error("Exception parsing JSON response! Raw value will be printed to STDOUT.")
                 print(json_stdout)
