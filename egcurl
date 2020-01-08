@@ -130,7 +130,7 @@ def _parse_egcurl(file):
             else:
                 config["max-body"] = 131072
 
-            if None in config.itervalues():
+            if None in config.values():
                 log.warn("Bad config line in section '%s': %s", current_section, line)
             else:
                 configs[current_section] = config
