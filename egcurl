@@ -259,6 +259,9 @@ def main():
     if 'host' in headers and headers['host'] != config['host']:
         raise ValueError("Host header does not match config host")
 
+    if config['max-body'] == 8192:
+        log.warning("The max-body value '8192' is likely incorrect. Signing POST requests may fail. Try removing that from your configuration.")
+
     segments = parse.urlsplit(url)
     if segments.netloc != config['host']:
         log.warn("Requested hostname '%s' will be replaced by config host '%s'", segments.netloc, config['host'])
