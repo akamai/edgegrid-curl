@@ -193,7 +193,7 @@ def get_parser():
                         help='ASCII data content for POST body')
     group.add_argument('--data-binary',
                         help='binary data content for POST body')
-    parser.add_argument('-X', '--method',
+    parser.add_argument('-X', '--method', '--request',
                         choices=['DELETE', 'GET', 'PATCH', 'POST', 'PUT'],
                         help='HTTP method for the request',
                         default='GET')
