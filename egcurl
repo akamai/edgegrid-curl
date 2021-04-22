@@ -194,7 +194,7 @@ def get_parser():
     group.add_argument('--data-binary',
                         help='binary data content for POST body')
     parser.add_argument('-X', '--method',
-                        choices=['DELETE', 'GET', 'POST', 'PUT'],
+                        choices=['DELETE', 'GET', 'PATCH', 'POST', 'PUT'],
                         help='HTTP method for the request',
                         default='GET')
     parser.add_argument('url',
