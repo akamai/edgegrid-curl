@@ -283,14 +283,16 @@ def main():
     auth_header = r.headers['Authorization']
     log.info("Authorization header: %s", auth_header)
 
-    curl_args = ([ 'curl', '-X', method, '-H', 'Authorization:' + auth_header, '-H', 'Expect:' ])
+    curl_args = ([ 'curl' ])
+    curl_args.extend( args_unknown )
+    curl_args.extend([ '-X', method, '-H', 'Authorization:' + auth_header, '-H', 'Expect:' ])
     for header in args.header:
         curl_args.extend([ '-H', header ])
     if args.data:
         curl_args.extend([ '--data', args.data ])
     if args.data_binary:
         curl_args.extend([ '--data-binary', args.data_binary ])
-    curl_args.extend(args_unknown + [ url ])
+    curl_args.extend([ url ])
 
     log.info("cURL command: %s", " ".join(curl_args))
     sys.stdout.flush()
