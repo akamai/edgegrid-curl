@@ -165,7 +165,7 @@ def _parse_fields(config, line):
 
 def get_parser():
     parser = argparse.ArgumentParser(description='Akamai {OPEN} API utility for signed API requests with cURL.',
-                                     epilog='Several arguments above as well as any unlisted arguments are passed on to curl. The <url> argument should always be the final argument. The url hostname will automatically be replaced with the one specified by the selected configuration section.')
+                                     epilog='Several arguments above as well as any unlisted arguments are passed on to cURL, starting with unlisted arguments followed by URL. The <url> argument should always be the first item starting with "https://". The URL hostname will automatically be replaced with the one specified by the selected configuration section.')
     parser.add_argument('-H', '--header',
                         action='append',
                         default = [],
@@ -199,7 +199,39 @@ def get_parser():
                         default='GET')
     parser.add_argument('url',
                         help='Request URL')
-    (args, args_unknown) = parser.parse_known_args()
+
+    # Reorder list of arguments before parsing it, moving URL to the beginning
+    # This assumes that the URL is the first item starting with "https://"
+    # This requires in particular that:
+    # - there is no cURL arguments like --data or --doh-url provided before the URL with a value starting also with "https://"
+    # - cURL option like --proto-default https is not used to pass URL that don't start with "https://" (as in curl --proto-default https www.example.com)
+
+    # Index of all items starting with "https://"
+    url_indexes=[sys.argv.index(x) for x in sys.argv if x.startswith("https://")]
+    if len(url_indexes) != 0:
+            # Old position of URL
+            url_index = url_indexes[0]
+            # New position of URL
+            url_index_new = 1
+            if url_index_new < url_index:
+                # Items before new position of URL
+                args_ordered = sys.argv[0:url_index_new]
+                # URL
+                args_ordered += [sys.argv[url_index]]
+                # Items between new and old position of URL
+                args_ordered += sys.argv[url_index_new:url_index]
+                # Items after old position of URL
+                args_ordered += sys.argv[url_index+1:len(sys.argv)]
+            else:
+                # URL can't be moved closer to the beginnig. Parse arguments without reordering them
+                args_ordered = sys.argv.copy()
+    else:
+        # URL not found. Parse arguments without reordering them
+        args_ordered = sys.argv.copy()
+    # Don't parse 1st item (program path)
+    args_ordered = args_ordered[1:]
+
+    (args, args_unknown) = parser.parse_known_args(args_ordered)
     if args.eg_verbose == 1:
         log.setLevel(logging.INFO)
     elif args.eg_verbose >= 2:
@@ -284,6 +316,7 @@ def main():
     log.info("Authorization header: %s", auth_header)
 
     curl_args = ([ 'curl' ])
+    # Pass unknown args before known ones, so that -q can be passed in 1st position
     curl_args.extend( args_unknown )
     curl_args.extend([ '-X', method, '-H', 'Authorization:' + auth_header, '-H', 'Expect:' ])
     for header in args.header:
