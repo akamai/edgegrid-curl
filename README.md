@@ -13,6 +13,12 @@ pip install httpie-edgegrid
 The examples and guides on the developer portal are moving to this new tool, so please consider using it for your API calls.
 
 ## CHANGES
+2022-04-14
+* Reorder list of arguments before parsing it, moving URL to the beginning.
+
+2022-04-13
+* Pass unknown argument before known ones, to let -q be passed in 1st position and honored.
+
 2021-04-22
 * Added PATCH as a valid method argument.
 
@@ -110,7 +116,7 @@ The hostname segment of the url will be automatically replaced with the hostname
 $ ./egcurl --help
 usage: egcurl [-h] [-H HEADER] [--eg-edgerc EG_EDGERC | --eg-config EG_CONFIG]
               [--eg-json] [--eg-section EG_SECTION] [--eg-verbose]
-              [-d DATA | --data-binary DATA_BINARY] [-X {DELETE,GET,POST,PUT}]
+              [-d DATA | --data-binary DATA_BINARY] [-X {DELETE,GET,PATCH,POST,PUT}]
               url
 
 Akamai {OPEN} API utility for signed API requests with cURL.
@@ -126,23 +132,21 @@ optional arguments:
                         Location of EdgeRc configuration ini file.
   --eg-config EG_CONFIG
                         Location of older configuration file (DEPRECATED).
-  --eg-json             Automatically apply JSON pretty-format to the
-                        response.
+  --eg-json             Automatically apply JSON pretty-format to the response.
   --eg-section EG_SECTION
-                        Section of the config file for the desired OPEN API
-                        credentials.
+                        Section of the config file for the desired OPEN API credentials.
   --eg-verbose          Enable verbose logging output (repeat for even more)
   -d DATA, --data DATA, --data-ascii DATA
                         ASCII data content for POST body
   --data-binary DATA_BINARY
                         binary data content for POST body
-  -X {DELETE,GET,POST,PUT}, --method {DELETE,GET,POST,PUT}
+  -X {DELETE,GET,PATCH,POST,PUT}, --method {DELETE,GET,PATCH,POST,PUT}, --request {DELETE,GET,PATCH,POST,PUT}
                         HTTP method for the request
 
-Several arguments above as well as any unlisted arguments are passed on to
-curl. The <url> argument should always be the final argument. The url hostname
-will automatically be replaced with the one specified by the selected
-configuration section.
+Several arguments above as well as any unlisted arguments are passed on to cURL,
+starting with unlisted arguments followed by URL. The <url> argument should always be
+the first item starting with "https://". The URL hostname will automatically be replaced
+with the one specified by the selected configuration section.
 ```
 
 ## EXAMPLE
