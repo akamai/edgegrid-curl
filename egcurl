@@ -318,7 +318,12 @@ def main():
     curl_args = ([ 'curl' ])
     # Pass unknown args before known ones, so that -q can be passed in 1st position
     curl_args.extend( args_unknown )
-    curl_args.extend([ '-X', method, '-H', 'Authorization:' + auth_header, '-H', 'Expect:' ])
+    # Append several specific headers we need to make proper requests.
+    curl_args.extend([ '-X', method, '-H', 'Authorization:' + auth_header ])
+    # For POST requests, cURL adds `Expect: 100-continue` by default. This
+    # overrides that behavior and makes a real POST request.
+    if method.upper() == 'POST':
+        curl_args.extend([ '-H', 'Expect:' ])
     for header in args.header:
         curl_args.extend([ '-H', header ])
     if args.data:
