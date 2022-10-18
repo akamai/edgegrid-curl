@@ -320,9 +320,11 @@ def main():
     curl_args.extend( args_unknown )
     # Append several specific headers we need to make proper requests.
     curl_args.extend([ '-X', method, '-H', 'Authorization:' + auth_header ])
-    # For POST requests, cURL adds `Expect: 100-continue` by default. This
-    # overrides that behavior and makes a real POST request.
-    if method.upper() == 'POST':
+    # For POST and PUT requests, cURL adds `Expect: 100-continue` by default.
+    # This behavior is part of RFC 2616, for making a speculative preflight
+    # request to ensure the origin will accept the body size. This is not
+    # useful behavior for egcurl, so we unset the `Expect` header.
+    if method.upper() in [ 'POST', 'PUT' ]:
         curl_args.extend([ '-H', 'Expect:' ])
     for header in args.header:
         curl_args.extend([ '-H', header ])
