@@ -27,9 +27,9 @@ The example in each file contains a call to one of the Identity and Access Manag
 |Sample file|Endpoint|Description|
 |---|---|---|
 |[`get-credentials.txt`](/examples/get-credentials.txt)|`/identity-management/v3/api-clients/self/credentials`|Lists your API client credentials.|
-|[`create-client.txt`](/examples/create-client.txt)|`/identity-management/v3/api-clients/self/credentials`|Creates a new API client. This is a *quick* client and grants you the default permissions associated with your account.|
+|[`create-credentials.txt`](/examples/create-credentials.txt)|`/identity-management/v3/api-clients/self/credentials`|Creates a new API client. This is a *quick* client and grants you the default permissions associated with your account.|
 |[`update-credentials.txt`](/examples/update-credentials.txt)|`/identity-management/v3/api-clients/self/credentials/{credentialId}`|Updates your credentials by ID.|
-|[`delete-client.txt`](/examples/delete-client.txt)|`/identity-management/v3/api-clients/self/credentials/{credentialId}`|Deletes your credentials by ID.|
+|[`delete-credentials.txt`](/examples/delete-credentials.txt)|`/identity-management/v3/api-clients/self/credentials/{credentialId}`|Deletes your credentials by ID.|
 
 Suggested chained call order:
 
