@@ -40,10 +40,10 @@ We provide authentication credentials through an API client. Requests to the API
     client_token = akab-c113ntt0k3n4qtari252bfxxbsl-yvsdj
    ```
    
-3. Use egcurl to sign your requests along with an `--eg-section` argument to specify the credentials' section header of your `.edgerc` file.
+3. Use egcurl to sign your requests along with and `--eg-edgerc` argument to point to the path of your `.edgerc` configuration file and an `--eg-section` argument to specify the credentials' section header.
    
    ```shell
-   egcurl --eg-section default
+   egcurl --eg-edgerc ~/.edgerc --eg-section default
    ```
 
 ### `~/.egcurl` configuration
@@ -138,8 +138,8 @@ egcurl has these optional non-standard arguments available:
 | Argument | Description |
 | --------- | ----------- |
 | `--eg-edgerc <FILE>` | Location of your `.edgerc` configuration file. |
-|`--eg-json` | Automatically applies JSON pretty-format to the response.|
 | `--eg-section <SECTION>` | The credential's section header of your `.edgerc` configuration file. |
+|`--eg-json` | Automatically applies JSON pretty-format to the response.|
 |`--eg-verbose` | Increases logging verbosity. Can be repeated to further increase verbosity. |
 
 
@@ -203,7 +203,9 @@ with the one specified by the selected configuration section.
 
 ## Bugs
 
-This tool indirectly uses pyOpenSSL for Python < 3 via [EdgeGrid for Python](https://github.com/akamai/AkamaiOPEN-edgegrid-python/), which is used to produce request signatures. macOS includes a very old version of it (0.13.1) by default, which is incompatible with EdgeGrid for Python. If you're using macOS and are incorrectly receiving an instruction to run `pip install edgegrid-python`, the issue is likely that your pyOpenSSL dependency is too old and needs to be upgraded.
+This tool indirectly uses pyOpenSSL for Python < 3 via [EdgeGrid for Python](https://github.com/akamai/AkamaiOPEN-edgegrid-python/), which is used to produce request signatures. macOS includes a very old version of it (0.13.1) by default, which is incompatible with EdgeGrid for Python. 
+
+If you're using macOS and are incorrectly receiving an instruction to run `pip install edgegrid-python`, the issue is likely that your pyOpenSSL dependency is too old and needs to be upgraded.
 
 Run this command to fix the problem:
 
