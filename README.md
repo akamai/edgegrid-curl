@@ -1,8 +1,8 @@
-# edgegrid-curl
+# EdgeGrid for cURL
 
-The library is a Python-based command wrapper for cURL to sign requests for Akamai OPEN APIs.
+This library implements an Authentication handler for HTTP requests using the [Akamai EdgeGrid Authentication](https://techdocs.akamai.com/developer/docs/authenticate-with-edgegrid) scheme for cURL.
 
-egcurl is a simple wrapper around cURL to help with calls to Akamai OPEN APIs. The script intercepts a subset of cURL command arguments to produce a request signature. Then it uses cURL to make the API call with all the original arguments and the computed request signature.
+`egcurl` is a simple Python-based command wrapper around the traditional [cURL](https://curl.se) command to sign requests for Akamai OPEN APIs. The script intercepts a subset of cURL command arguments to produce a request signature. Then it uses cURL to make the API call with all the original arguments and the computed request signature.
 
 > **Note:** There is now a simpler command line tool available, httpie. You don't need to be familiar with cURL to use httpie. It's available on the [httpie-edgegrid](https://github.com/akamai-open/httpie-edgegrid) GitHub repository or by running this command:
 
@@ -14,15 +14,15 @@ The examples and guides on the [developer portal](https://techdocs.akamai.com/ho
 
 ## Install
 
-1. Install Python 2.7 or newer. If you're running GNU/Linux or macOS X, you probably already have it.
+1. Install [Python 2.7](https://www.python.org/downloads/) or newer. If you're running GNU/Linux or macOS X, you probably already have it.
    
-2. Install cURL. The script expects to find it in your path.
+2. Install [cURL](https://curl.se/download.html). The script expects to find it in your path.
    
-3. Install edgegrid-python to sign requests by running:
+3. Install edgegrid-python to sign your requests by running:
    
    ````pip install edgegrid-python````
    
-4. Clone this repository and then execute egcurl directly from the cloned repository.
+4. Clone this repository and then execute `egcurl` directly from the cloned repository.
 
 ## Authentication
 
@@ -40,15 +40,15 @@ We provide authentication credentials through an API client. Requests to the API
     client_token = akab-c113ntt0k3n4qtari252bfxxbsl-yvsdj
    ```
    
-3. Use egcurl to sign your requests along with and `--eg-edgerc` argument to point to the path of your `.edgerc` configuration file and an `--eg-section` argument to specify the credentials' section header.
+3. Use `egcurl` to sign your requests along with and `--eg-edgerc` argument to point to the path of your `.edgerc` configuration file and an `--eg-section` argument to specify the credentials' section header.
    
    ```shell
-   egcurl --eg-edgerc ~/.edgerc --eg-section default
+   egcurl --eg-edgerc ~/.edgerc --eg-section default --request GET \
    ```
 
 ### `~/.egcurl` configuration
 
-egcurl supports an older non-standard configuration file, specified by `--eg-config`. If you use this argument or if the `~/.egcurl` file exists, this configuration file will be consulted first to retrieve your client configuration. If the file doesn't exist or the section isn't found, egcurl will look for the client configuration in your `~/.edgerc` file automatically.
+`egcurl` supports an older non-standard configuration file, specified by `--eg-config`. If you use this argument or if the `~/.egcurl` file exists, this configuration file will be consulted first to retrieve your client configuration. If the file doesn't exist or the section isn't found, `egcurl` will look for the client configuration in your `~/.edgerc` file automatically.
 
 The older `~/.egcurl` configuration is **deprecated**. Support for this file and format will be removed on or shortly after 2017-05-01. You can easily convert an older `~/.egcurl` configuration to an `~/.edgerc` with the `convert_egcurl.pl` script. For example:
 
@@ -61,7 +61,7 @@ $ mv ~/.egcurl ~/.egcurl-backup
 
 To use the library, provide the credential's section header of your `.edgerc` file and the appropriate endpoint information.
 
-The`host` segment of the url will be automatically replaced with the host indicated by the selected configuration section.
+The `host` segment of the url will be automatically replaced with the host indicated by the selected configuration section.
 
 ```shell
 egcurl --eg-edgerc ~/.edgerc --eg-section default --request GET \
@@ -129,11 +129,11 @@ egcurl --eg-verbose --eg-edgerc ~/.edgerc --eg-section default --request GET \
 
 ## Command line
 
-egcurl is a wrapper around the traditional cURL command, thus it supports nearly all arguments for cURL.
+`egcurl` is a wrapper around the traditional cURL command, thus it supports nearly all arguments for cURL.
 
 ### Arguments
 
-egcurl has these optional non-standard arguments available:
+`egcurl` has these optional non-standard arguments available:
 
 | Argument | Description |
 | --------- | ----------- |
@@ -143,7 +143,7 @@ egcurl has these optional non-standard arguments available:
 |`--eg-verbose` | Increases logging verbosity. Can be repeated to further increase verbosity. |
 
 
-> **Note:** egcurl doesn't support these arguments:
+> **Note:** `egcurl` doesn't support these arguments:
 >
 > -  `-F`, `--form`, `--form-string`
 > - `--data-urlencode`
@@ -161,7 +161,7 @@ There're several things you need to take into account when specifying the reques
 
 ### Help
 
-Use `./egcurl --help` to get detailed information on egcurl and the available arguments.
+Use `./egcurl --help` to get detailed information on `egcurl` and the available arguments.
 
 ```shell
 $ ./egcurl --help
