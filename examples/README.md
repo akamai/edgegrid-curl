@@ -11,12 +11,6 @@ To run any of the files:
    
    - Append the path to your `.edgerc`. The default is set to the home directory.
    - Provide the section header for the set of credentials you'd like to use. The default is `default`.
-   
-   ```shell
-   egcurl --eg-edgerc ~/.edgerc --eg-section default --request GET \
-    --url "https://$host//identity-management/v3/api-clients/self/credentials" \
-    --header "Accept: application/json" 
-   ```
 
 3. Press `Enter` to run the egcurl statement.
     
