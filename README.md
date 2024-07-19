@@ -114,7 +114,7 @@ egcurl --eg-edgerc ~/.edgerc --eg-section default --request PUT \
   "sessionTimeOut": 30,
   "timeZone": "GMT",
   "phone": "3456788765"
-}
+}'
 ```
 
 ### Debug
