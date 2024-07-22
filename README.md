@@ -43,7 +43,7 @@ We provide authentication credentials through an API client. Requests to the API
 3. Use `egcurl` to sign your requests along with and `--eg-edgerc` argument to point to the path of your `.edgerc` configuration file and an `--eg-section` argument to specify the credentials' section header.
    
    ```shell
-   egcurl --eg-edgerc ~/.edgerc --eg-section default --request GET \
+   egcurl --eg-edgerc ~/.edgerc --eg-section default --request GET
    ```
 
 ### `~/.egcurl` configuration
@@ -221,7 +221,7 @@ To report an issue or make a suggestion, create a new [GitHub issue](https://git
 
 ## License
 
-Copyright 2023 Akamai Technologies, Inc. All rights reserved.
+Copyright 2024 Akamai Technologies, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License. You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0.
 
