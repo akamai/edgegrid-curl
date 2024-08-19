@@ -4,24 +4,24 @@ This library implements an Authentication handler for HTTP requests using the [A
 
 `egcurl` is a simple Python-based command wrapper around the traditional [cURL](https://curl.se) command to sign requests for Akamai OPEN APIs. The script intercepts a subset of cURL command arguments to produce a request signature. Then it uses cURL to make the API call with all the original arguments and the computed request signature.
 
-> **Note:** There is now a simpler command line tool available, httpie. You don't need to be familiar with cURL to use httpie. It's available on the [httpie-edgegrid](https://github.com/akamai-open/httpie-edgegrid) GitHub repository or by running this command:
-
-```
-pip install httpie-edgegrid
-```
-
-The examples and guides on the [developer portal](https://techdocs.akamai.com/home/page/apis) are moving to this new tool, thus consider using it for your API calls.
+> **Note:** There is now a simpler command line tool available, httpie. You don't need to be familiar with cURL to use httpie. It's available on the [httpie-edgegrid](https://github.com/akamai-open/httpie-edgegrid) GitHub repository.
+>
+> The examples and guides on the [developer portal](https://techdocs.akamai.com/home/page/apis) are moving to this new tool, thus consider using it for your API calls.
 
 ## Install
 
-1. Install [Python 2.7](https://www.python.org/downloads/) or newer. If you're running GNU/Linux or macOS X, you probably already have it.
-   
+1. Install Python 3.6 or later on your system. You can download it from https://www.python.org/downloads/. If you're running GNU/Linux or macOS X, you probably already have it.
+
+   > __NOTE:__ Python 2 is no longer supported by the [Python Software Foundation](https://www.python.org/doc/sunset-python-2/). You won't be able to use the library with Python 2.
+
 2. Install [cURL](https://curl.se/download.html). The script expects to find it in your path.
-   
-3. Install edgegrid-python to sign your requests by running:
-   
-   ````pip install edgegrid-python````
-   
+
+3. Install the `edgegrid-python` authentication handler to sign your requests by running this command:
+
+   ```
+   pip install edgegrid-python
+    ```
+
 4. Clone this repository and then execute `egcurl` directly from the cloned repository.
 
 ## Authentication
@@ -61,11 +61,9 @@ $ mv ~/.egcurl ~/.egcurl-backup
 
 To use the library, provide the credential's section header of your `.edgerc` file and the appropriate endpoint information.
 
-The `host` segment of the url will be automatically replaced with the host indicated by the selected configuration section.
-
 ```shell
 egcurl --eg-edgerc ~/.edgerc --eg-section default --request GET \
-     --url https://$host/identity-management/v3/user-profile \
+     --url /identity-management/v3/user-profile \
      --header 'accept: application/json'
 ```
 
@@ -74,12 +72,12 @@ egcurl --eg-edgerc ~/.edgerc --eg-section default --request GET \
 When entering query parameters, you can first save them as variables and then pass them in the url after a question mark ("?") at the end of the main URL path.
 
 ```shell
-authGrants=true
-notifications=true
-actions=true
+AUTH_GRANTS=true
+NOTIFICATIONS=true
+ACTIONS=true
 
 egcurl --eg-edgerc ~/.edgerc --eg-section default --request GET \
-     --url 'https://$host/identity-management/v3/user-profile?authGrants=$authGrants&notifications=$notifications&actions=$actions' \
+     --url "/identity-management/v3/user-profile?authGrants=${AUTH_GRANTS}&notifications=${NOTIFICATIONS}&actions=${ACTIONS}" \
      --header 'accept: application/json'
 ```
 
@@ -91,7 +89,7 @@ Enter request headers in the `--header` argument.
 
 ```shell
 egcurl --eg-edgerc ~/.edgerc --eg-section default --request GET \
-     --url https://$host/identity-management/v3/user-profile \
+     --url /identity-management/v3/user-profile \
      --header 'accept: application/json'
 ```
 
@@ -101,7 +99,7 @@ Provide the request body as an object in the `--data` argument.
 
 ```shell
 egcurl --eg-edgerc ~/.edgerc --eg-section default --request PUT \
-     --url https://$host/identity-management/v3/user-profile/basic-info \
+     --url /identity-management/v3/user-profile/basic-info \
      --header 'accept: application/json' \
      --header 'content-type: application/json' \
      --data '
@@ -123,7 +121,7 @@ Use the `--eg-verbose` argument to enable debugging and get additional informati
 
 ```Shell
 egcurl --eg-verbose --eg-edgerc ~/.edgerc --eg-section default --request GET \
-     --url https://$host/identity-management/v3/user-profile \
+     --url /identity-management/v3/user-profile \
      --header 'accept: application/json'
 ```
 
