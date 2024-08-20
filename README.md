@@ -1,118 +1,167 @@
-# edgegrid-curl
+# EdgeGrid for cURL
 
-Python-based command wrapper for cURL to sign requests for Akamai OPEN APIs.
+This library implements an Authentication handler for HTTP requests using the [Akamai EdgeGrid Authentication](https://techdocs.akamai.com/developer/docs/authenticate-with-edgegrid) scheme for cURL.
 
-egcurl is a simple wrapper around cURL to help with calls to Akamai OPEN APIs. The script intercepts a subset of curl command arguments in order to produce a request signature, then uses curl to make the API call with all the original arguments plus the computed request signature.
+`egcurl` is a simple Python-based command wrapper around the traditional [cURL](https://curl.se) command to sign requests for Akamai OPEN APIs. The script intercepts a subset of cURL command arguments to produce a request signature. Then it uses cURL to make the API call with all the original arguments and the computed request signature.
 
-Note that there is now a simpler command line utility, httpie, which doesn't depend on you already knowing how to use cURL. It is available [here](https://github.com/akamai-open/httpie-edgegrid) or by calling
+> **Note:** There is now a simpler command line tool available, httpie. You don't need to be familiar with cURL to use httpie. It's available on the [httpie-edgegrid](https://github.com/akamai-open/httpie-edgegrid) GitHub repository.
+>
+> The examples and guides on the [developer portal](https://techdocs.akamai.com/home/page/apis) are moving to this new tool, thus consider using it for your API calls.
 
-```
-pip install httpie-edgegrid
-```
+## Install
 
-The examples and guides on the developer portal are moving to this new tool, so please consider using it for your API calls.
+1. Install Python 3.6 or later on your system. You can download it from https://www.python.org/downloads/. If you're running GNU/Linux or macOS, you probably already have it.
 
-## CHANGES
-2022-04-14
-* Reorder list of arguments before parsing it, moving URL to the beginning.
+   > __NOTE:__ Python 2 is no longer supported by the [Python Software Foundation](https://www.python.org/doc/sunset-python-2/). You won't be able to use the library with Python 2.
 
-2022-04-13
-* Pass unknown argument before known ones, to let -q be passed in 1st position and honored.
+2. Install [cURL](https://curl.se/download.html). The script expects to find it in your path.
 
-2021-04-22
-* Added PATCH as a valid method argument.
+3. Install the `edgegrid-python` authentication handler to sign your requests by running this command:
 
-2017-07-27
-* Add --eg-json argument to pretty-format JSON responses.
+   ```
+   pip install edgegrid-python
+    ```
 
-2016-11-07
-* Add support for EdgeRc configuration files.
+4. Clone this repository and then execute `egcurl` directly from the cloned repository.
 
-2016-08-25
-* Use EdgeGridAuth to sign requests.
-* Automatically use hostname specified by configuration section.
+## Authentication
 
-2016-06-01
-* Use logging module for logging.
-* Replace getopt argument parsing code with argparse (requires python 2.7+)
+We provide authentication credentials through an API client. Requests to the API are signed with a timestamp and are executed immediately.
 
-2014-05-13
-* (GRID-231) A POST request body larger than the content hash max-body is allowed but only the first (max-body) bytes are used in the [Content hash aspect of the request signature](https://developer.akamai.com/stuff/Getting_Started_with_OPEN_APIs/Client_Auth.html).
+1. [Create authentication credentials](https://techdocs.akamai.com/developer/docs/set-up-authentication-credentials).
 
+2. Place your credentials in an EdgeGrid resource file, `.edgerc`, under a heading of `[default]` at your local home directory or the home directory of a web-server user.
 
-## INSTALLATION
+   ```
+   [default]
+    client_secret = C113nt53KR3TN6N90yVuAgICxIRwsObLi0E67/N8eRN=
+    host = akab-h05tnam3wl42son7nktnlnnx-kbob3i3v.luna.akamaiapis.net
+    access_token = akab-acc35t0k3nodujqunph3w7hzp7-gtm6ij
+    client_token = akab-c113ntt0k3n4qtari252bfxxbsl-yvsdj
+   ```
 
-1. Install python 2.7 or newer. If you are running GNU/Linux or Mac OS X, you probably already have it.
-2. Install curl. The script expects to find it in your path.
-3. Install edgegrid-python. This is used to sign requests. (`pip install edgegrid-python`)
-4. Clone this repository and then you can execute egcurl directly from the repository clone.
+3. Use `egcurl` to sign your requests along with and `--eg-edgerc` argument to point to the path of your `.edgerc` configuration file and an `--eg-section` argument to specify the credentials' section header.
 
+   ```shell
+   python3 egcurl --eg-edgerc ~/.edgerc --eg-section default --request GET
+   ```
 
-## CONFIGURATION
+### `~/.egcurl` configuration
 
-The EdgeGrid plugin relies on an `~/.edgerc` credentials file that needs to be created in your home directory and organized by [section] following the format below. Each [section] can contain a different credentials set allowing you to store all of your credentials in a single `~/.edgerc` file.
+`egcurl` supports an older non-standard configuration file, specified by `--eg-config`. If you use this argument or if the `~/.egcurl` file exists, this configuration file will be consulted first to retrieve your client configuration. If the file doesn't exist or the section isn't found, `egcurl` will look for the client configuration in your `~/.edgerc` file automatically.
 
-```
-    [default]
-    client_secret = xxxx
-    host = xxxx # Note, don't include the https:// here
-    access_token = xxxx
-    client_token = xxxx
-    max-body = xxxx
-
-    [section1]
-    client_secret = xxxx
-    host = xxxx # Note, don't include the https:// here
-    access_token = xxxx
-    client_token = xxxx
-    max-body = xxxx
-```
-
-Once you have the credentials set up you can use egcurl as well as other Akamai OPEN tools.
-
-Use the `--eg-section` argument to specify which section from the configuration file contains the desired credentials for your API request.
-
-
-## OLDER `~/.egcurl` CONFIGURATION
-
-egcurl supports an older non-standard configuration file, specified by `--eg-config`. If this argument is used (or if `~/.egcurl` exists), this configuration file will be consulted first to retrieve your client configuration. If the file does not exist or the section is not found, egcurl will look for the client configuration in your `~/.edgerc` automatically.
-
-The older `~/.egcurl` configuration is deprecated. Support for this file and format will be removed on or shortly after 2017-05-01. You can easily convert an olrder `~/.egcurl` configuration to an `~/.edgerc` with the `convert_egcurl.pl` script. For example:
+The older `~/.egcurl` configuration is **deprecated**. Support for this file and format will be removed on or shortly after 2017-05-01. You can easily convert an older `~/.egcurl` configuration to an `~/.edgerc` with the `convert_egcurl.pl` script. For example:
 
 ```
 $ ./convert_egcurl.pl < ~/.egcurl > ~/.edgerc
 $ mv ~/.egcurl ~/.egcurl-backup
 ```
 
+## Use
 
-## COMMAND LINE
+To use the library, provide the credential's section header of your `.edgerc` file and the appropriate endpoint information.
 
-egcurl is a wrapper around the traditional curl command, so nearly all arguments for curl are supported.
-
-There are three optional non-standard arguments available:
-
-* `--eg-edgerc FILE`: Use `FILE` instead of `~/.edgerc` to read the configuration.
-* `--eg-json`: Automatically apply JSON pretty-format to the response.
-* `--eg-section SECTION`: Use section `SECTION` instead of section "default" in the configuration.
-* `--eg-verbose`: Increase logging verbosity. Can be repeated to further increase verbosity.
-
-These arguments are not supported:
-
-* `-F`, `--form`, `--form-string`
-* `--data-urlencode`
-* `-G`, `--get`
-
-There are several restrictions on specifying the request data for POST and PUT requests (currently only POST requests).
-
-1. Only supports `-d`, `--data` and `--data-ascii` for ascii data and `--data-binary` for binary data.
-2. Only one data option can be used on the same command line.
-3. If the data starts with the `@` character, the rest is treated as the name of the file to read the data from. Only one file can be specified on the same command line.
-
-The hostname segment of the url will be automatically replaced with the hostname indicated by the selected configuration section.
-
-## USAGE
-
+```shell
+python3 egcurl --eg-edgerc ~/.edgerc --eg-section default --request GET \
+     --url "https://luna.akamaiapis.net/identity-management/v3/user-profile" \
+     --header 'accept: application/json'
 ```
+
+### Query string parameters
+
+When entering query parameters, you can first save them as variables and then pass them in the url after a question mark ("?") at the end of the main URL path.
+
+```shell
+auth_grants=true
+notifications=true
+actions=true
+
+python3 egcurl --eg-edgerc ~/.edgerc --eg-section default --request GET \
+     --url "https://luna.akamaiapis.net/identity-management/v3/user-profile?authGrants=$auth_grants&notifications=$notifications&actions=$actions" \
+     --header 'accept: application/json'
+```
+
+### Headers
+
+Enter request headers in the `--header` argument.
+
+> **Note:** You don't need to include the `Content-Type` and `Content-Length` headers. The authentication layer adds these values.
+
+```shell
+python3 egcurl --eg-edgerc ~/.edgerc --eg-section default --request GET \
+     --url "https://luna.akamaiapis.net/identity-management/v3/user-profile" \
+     --header 'accept: application/json'
+```
+
+### Body data
+
+Provide the request body as an object in the `--data` argument.
+
+```shell
+python3 egcurl --eg-edgerc ~/.edgerc --eg-section default --request PUT \
+     --url "https://luna.akamaiapis.net/identity-management/v3/user-profile/basic-info" \
+     --header 'accept: application/json' \
+     --header 'content-type: application/json' \
+     --data '
+{
+  "contactType": "Billing",
+  "country": "USA",
+  "firstName": "John",
+  "lastName": "Smith",
+  "preferredLanguage": "English",
+  "sessionTimeOut": 30,
+  "timeZone": "GMT",
+  "phone": "3456788765"
+}'
+```
+
+### Debug
+
+Use the `--eg-verbose` argument to enable debugging and get additional information on the HTTP request and response.
+
+```Shell
+python3 egcurl --eg-verbose --eg-edgerc ~/.edgerc --eg-section default --request GET \
+     --url "https://luna.akamaiapis.net/identity-management/v3/user-profile" \
+     --header 'accept: application/json'
+```
+
+## Command line
+
+`egcurl` is a wrapper around the traditional cURL command, thus it supports nearly all arguments for cURL.
+
+### Arguments
+
+`egcurl` has these optional non-standard arguments available:
+
+| Argument | Description |
+| --------- | ----------- |
+| `--eg-edgerc <FILE>` | Location of your `.edgerc` configuration file. |
+| `--eg-section <SECTION>` | The credential's section header of your `.edgerc` configuration file. |
+|`--eg-json` | Automatically applies JSON pretty-format to the response.|
+|`--eg-verbose` | Increases logging verbosity. Can be repeated to further increase verbosity. |
+
+
+> **Note:** `egcurl` doesn't support these arguments:
+>
+> -  `-F`, `--form`, `--form-string`
+> - `--data-urlencode`
+> - `-G`, `--get`
+
+### Limitations
+
+There're several things you need to take into account when specifying the request data for POST requests.
+
+- The POST requests support only `-d`, `--data` and `--data-ascii` for ascii data and `--data-binary` for binary data.
+
+- You can use only one data option on the same command line.
+
+- If the data starts with the `@` character, the rest is treated as the name of the file to read the data from. You can specify only one file on the same command line.
+
+### Help
+
+Use `./egcurl --help` to get detailed information on `egcurl` and the available arguments.
+
+```shell
 $ ./egcurl --help
 usage: egcurl [-h] [-H HEADER] [--eg-edgerc EG_EDGERC | --eg-config EG_CONFIG]
               [--eg-json] [--eg-section EG_SECTION] [--eg-verbose]
@@ -149,40 +198,29 @@ the first item starting with "https://". The URL hostname will automatically be 
 with the one specified by the selected configuration section.
 ```
 
-## EXAMPLE
 
-Here is an example `~/.edgerc` configuration:
+## Bugs
 
-```
-[default]
-access_token = akaa-ublu6mqdcqkjw5lz-542a56pcogddddow
-client_secret = SOMESECRET
-client_token = akaa-nev5k66unzize2gx-5uz4svbszp4ko5wq
-host = akaa-u5x3btzf44hplb4q-6jrzwnvo7llch3po.luna.akamaiapis.net
-max-body = 131072
-```
+This tool indirectly uses pyOpenSSL for Python < 3 via [EdgeGrid for Python](https://github.com/akamai/AkamaiOPEN-edgegrid-python/), which is used to produce request signatures. macOS includes a very old version of it (0.13.1) by default, which is incompatible with EdgeGrid for Python.
 
-Here is an example invocation:
-
-```
-egcurl -sSik 'https://luna.akamaiapis.net/billing-usage/v1/reportSources'
-```
-
-## BUGS
-
-This tool indirectly uses pyOpenSSL for Python < 3 via
-[EdgeGrid for Python](https://github.com/akamai/AkamaiOPEN-edgegrid-python/),
-which is used to produce request signatures. macOS includes a very old
-version of it (0.13.1) by default, which is incompatible with EdgeGrid for
-Python. If you are using macOS and are incorrectly receiving an instruction
-to run `pip install edgegrid-python`, the the issue is likely that your
-pyOpenSSL dependency is too old and needs to be upgraded.
+If you're using macOS and are incorrectly receiving an instruction to run `pip install edgegrid-python`, the issue is likely that your pyOpenSSL dependency is too old and needs to be upgraded.
 
 Run this command to fix the problem:
+
 ```
 pip install -U pyOpenSSL
 ```
 
-_NOTE: DO NOT RUN THIS COMMAND AS ROOT._ It is not possible to upgrade
-the system installation of pyOpenSSL on macOS. Attempting to upgrade it
-will fail with inexplicable errors.
+> **Note:** DO NOT RUN THIS COMMAND AS ROOT. It's not possible to upgrade the system installation of pyOpenSSL on macOS. Attempting to upgrade it will fail with inexplicable errors.
+
+## Reporting issues
+
+To report an issue or make a suggestion, create a new [GitHub issue](https://github.com/akamai/edgegrid-curl/issues).
+
+## License
+
+Copyright 2024 Akamai Technologies, Inc. All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License. You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0.
+
+Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
