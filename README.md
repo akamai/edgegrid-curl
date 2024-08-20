@@ -10,7 +10,7 @@ This library implements an Authentication handler for HTTP requests using the [A
 
 ## Install
 
-1. Install Python 3.6 or later on your system. You can download it from https://www.python.org/downloads/. If you're running GNU/Linux or macOS X, you probably already have it.
+1. Install Python 3.6 or later on your system. You can download it from https://www.python.org/downloads/. If you're running GNU/Linux or macOS, you probably already have it.
 
    > __NOTE:__ Python 2 is no longer supported by the [Python Software Foundation](https://www.python.org/doc/sunset-python-2/). You won't be able to use the library with Python 2.
 
@@ -29,9 +29,9 @@ This library implements an Authentication handler for HTTP requests using the [A
 We provide authentication credentials through an API client. Requests to the API are signed with a timestamp and are executed immediately.
 
 1. [Create authentication credentials](https://techdocs.akamai.com/developer/docs/set-up-authentication-credentials).
-   
+
 2. Place your credentials in an EdgeGrid resource file, `.edgerc`, under a heading of `[default]` at your local home directory or the home directory of a web-server user.
-   
+
    ```
    [default]
     client_secret = C113nt53KR3TN6N90yVuAgICxIRwsObLi0E67/N8eRN=
@@ -39,11 +39,11 @@ We provide authentication credentials through an API client. Requests to the API
     access_token = akab-acc35t0k3nodujqunph3w7hzp7-gtm6ij
     client_token = akab-c113ntt0k3n4qtari252bfxxbsl-yvsdj
    ```
-   
+
 3. Use `egcurl` to sign your requests along with and `--eg-edgerc` argument to point to the path of your `.edgerc` configuration file and an `--eg-section` argument to specify the credentials' section header.
-   
+
    ```shell
-   egcurl --eg-edgerc ~/.edgerc --eg-section default --request GET
+   python3 egcurl --eg-edgerc ~/.edgerc --eg-section default --request GET
    ```
 
 ### `~/.egcurl` configuration
@@ -62,8 +62,8 @@ $ mv ~/.egcurl ~/.egcurl-backup
 To use the library, provide the credential's section header of your `.edgerc` file and the appropriate endpoint information.
 
 ```shell
-egcurl --eg-edgerc ~/.edgerc --eg-section default --request GET \
-     --url /identity-management/v3/user-profile \
+python3 egcurl --eg-edgerc ~/.edgerc --eg-section default --request GET \
+     --url "https://luna.akamaiapis.net/identity-management/v3/user-profile" \
      --header 'accept: application/json'
 ```
 
@@ -72,12 +72,12 @@ egcurl --eg-edgerc ~/.edgerc --eg-section default --request GET \
 When entering query parameters, you can first save them as variables and then pass them in the url after a question mark ("?") at the end of the main URL path.
 
 ```shell
-AUTH_GRANTS=true
-NOTIFICATIONS=true
-ACTIONS=true
+auth_grants=true
+notifications=true
+actions=true
 
-egcurl --eg-edgerc ~/.edgerc --eg-section default --request GET \
-     --url "/identity-management/v3/user-profile?authGrants=${AUTH_GRANTS}&notifications=${NOTIFICATIONS}&actions=${ACTIONS}" \
+python3 egcurl --eg-edgerc ~/.edgerc --eg-section default --request GET \
+     --url "https://luna.akamaiapis.net/identity-management/v3/user-profile?authGrants=$auth_grants&notifications=$notifications&actions=$actions" \
      --header 'accept: application/json'
 ```
 
@@ -88,8 +88,8 @@ Enter request headers in the `--header` argument.
 > **Note:** You don't need to include the `Content-Type` and `Content-Length` headers. The authentication layer adds these values.
 
 ```shell
-egcurl --eg-edgerc ~/.edgerc --eg-section default --request GET \
-     --url /identity-management/v3/user-profile \
+python3 egcurl --eg-edgerc ~/.edgerc --eg-section default --request GET \
+     --url "https://luna.akamaiapis.net/identity-management/v3/user-profile" \
      --header 'accept: application/json'
 ```
 
@@ -98,8 +98,8 @@ egcurl --eg-edgerc ~/.edgerc --eg-section default --request GET \
 Provide the request body as an object in the `--data` argument.
 
 ```shell
-egcurl --eg-edgerc ~/.edgerc --eg-section default --request PUT \
-     --url /identity-management/v3/user-profile/basic-info \
+python3 egcurl --eg-edgerc ~/.edgerc --eg-section default --request PUT \
+     --url "https://luna.akamaiapis.net/identity-management/v3/user-profile/basic-info" \
      --header 'accept: application/json' \
      --header 'content-type: application/json' \
      --data '
@@ -120,8 +120,8 @@ egcurl --eg-edgerc ~/.edgerc --eg-section default --request PUT \
 Use the `--eg-verbose` argument to enable debugging and get additional information on the HTTP request and response.
 
 ```Shell
-egcurl --eg-verbose --eg-edgerc ~/.edgerc --eg-section default --request GET \
-     --url /identity-management/v3/user-profile \
+python3 egcurl --eg-verbose --eg-edgerc ~/.edgerc --eg-section default --request GET \
+     --url "https://luna.akamaiapis.net/identity-management/v3/user-profile" \
      --header 'accept: application/json'
 ```
 
@@ -152,9 +152,9 @@ egcurl --eg-verbose --eg-edgerc ~/.edgerc --eg-section default --request GET \
 There're several things you need to take into account when specifying the request data for POST requests.
 
 - The POST requests support only `-d`, `--data` and `--data-ascii` for ascii data and `--data-binary` for binary data.
-   
+
 - You can use only one data option on the same command line.
-   
+
 - If the data starts with the `@` character, the rest is treated as the name of the file to read the data from. You can specify only one file on the same command line.
 
 ### Help
@@ -201,7 +201,7 @@ with the one specified by the selected configuration section.
 
 ## Bugs
 
-This tool indirectly uses pyOpenSSL for Python < 3 via [EdgeGrid for Python](https://github.com/akamai/AkamaiOPEN-edgegrid-python/), which is used to produce request signatures. macOS includes a very old version of it (0.13.1) by default, which is incompatible with EdgeGrid for Python. 
+This tool indirectly uses pyOpenSSL for Python < 3 via [EdgeGrid for Python](https://github.com/akamai/AkamaiOPEN-edgegrid-python/), which is used to produce request signatures. macOS includes a very old version of it (0.13.1) by default, which is incompatible with EdgeGrid for Python.
 
 If you're using macOS and are incorrectly receiving an instruction to run `pip install edgegrid-python`, the issue is likely that your pyOpenSSL dependency is too old and needs to be upgraded.
 
