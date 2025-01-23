@@ -13,8 +13,10 @@ To run this example:
 4. Add the `credential_id` for the set of credentials created using the create example as a path parameter.
 
 5. Edit the `expiresOn` date to today's date. Optionally, you can change the `description` value. The date cannot be more than two years out or it will return a 400.
+   
+   > **Important:** Don't use the credentials you're actively using when inactivating a set of credentials. Otherwise, you'll block your access to the Akamai APIs.
 
-4. Press `Enter` to run the egcurl statement.
+6. Press `Enter` to run the egcurl statement.
 
    A successful call returns.
 
